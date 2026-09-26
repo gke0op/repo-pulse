@@ -36,6 +36,11 @@ class AudioOut(private val sampleRate: Int) {
         .build()
 
     private val thread = Thread({
+        // A released track makes write()/play() throw; end the thread quietly instead of crashing the app.
+        runCatching { playLoop() }
+    }, "audio-out").apply { isDaemon = true; start() }
+
+    private fun playLoop() {
         track.play()
         while (true) {
             val item = try { queue.take() } catch (_: InterruptedException) { break }
@@ -50,7 +55,7 @@ class AudioOut(private val sampleRate: Int) {
             }
             if (gen == generation) item.onEnd?.invoke()
         }
-    }, "audio-out").apply { isDaemon = true; start() }
+    }
 
     fun enqueue(samples: FloatArray, onStart: (() -> Unit)? = null, onEnd: (() -> Unit)? = null) {
         queue.put(Item(samples, onStart, onEnd))

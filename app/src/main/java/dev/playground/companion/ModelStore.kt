@@ -1,5 +1,6 @@
 package dev.playground.companion
 
+import dev.playground.companion.engine.VoiceEngine
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import java.io.BufferedInputStream
@@ -14,21 +15,27 @@ class ModelStore(root: File) {
     private val dir = File(root, "models").apply { mkdirs() }
 
     val llmFile = File(dir, "qwen2.5-1.5b-instruct-q4_k_m.gguf")
-    val voiceDir = File(dir, "kokoro-int8-en-v0_19")
 
-    fun ready() = llmFile.exists() && File(voiceDir, ".ok").exists()
+    fun voiceDir(e: VoiceEngine) = File(dir, e.dirName)
+    fun voiceReady(e: VoiceEngine) = File(voiceDir(e), ".ok").exists()
+
+    /** The LLM plus the default voice are needed to start; other voices download on demand. */
+    fun ready() = llmFile.exists() && voiceReady(VoiceEngine.KOKORO_INT8)
 
     /** progress(label, doneBytes, totalBytes) */
     fun ensure(progress: (String, Long, Long) -> Unit) {
         if (!llmFile.exists()) download(LLM_URL, llmFile) { d, t -> progress("LLM (Qwen2.5 1.5B)", d, t) }
-        if (!File(voiceDir, ".ok").exists()) {
-            val tar = File(dir, "kokoro.tar.bz2")
-            download(VOICE_URL, tar) { d, t -> progress("Voice (Kokoro)", d, t) }
-            progress("Unpacking voice", 0, 0)
-            untarBz2(tar, dir)
-            tar.delete()
-            File(voiceDir, ".ok").writeText("ok")
-        }
+        ensureVoice(VoiceEngine.KOKORO_INT8, progress)
+    }
+
+    fun ensureVoice(e: VoiceEngine, progress: (String, Long, Long) -> Unit) {
+        if (voiceReady(e)) return
+        val tar = File(dir, "${e.dirName}.tar.bz2")
+        download(e.url, tar) { d, t -> progress("Voice (${e.label})", d, t) }
+        progress("Unpacking ${e.label}", 0, 0)
+        untarBz2(tar, dir)
+        tar.delete()
+        File(voiceDir(e), ".ok").writeText("ok")
     }
 
     private fun download(url: String, dest: File, progress: (Long, Long) -> Unit) {
@@ -85,7 +92,5 @@ class ModelStore(root: File) {
     private companion object {
         const val LLM_URL =
             "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-        const val VOICE_URL =
-            "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2"
     }
 }

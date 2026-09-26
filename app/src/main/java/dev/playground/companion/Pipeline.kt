@@ -9,6 +9,8 @@ import dev.playground.companion.engine.RobotFilter
 import dev.playground.companion.engine.SentenceChunker
 import dev.playground.companion.engine.SpeechText
 import dev.playground.companion.engine.Voice
+import dev.playground.companion.engine.VoiceBench
+import dev.playground.companion.engine.VoiceEngine
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -21,7 +23,12 @@ import java.util.concurrent.LinkedBlockingQueue
  *
  * Every turn records a [TurnTrace] so we can see where the time goes on a real phone.
  */
-class Pipeline(private val ctx: Context, private val store: ModelStore, private val ui: Listener) {
+class Pipeline(
+    private val ctx: Context,
+    private val store: ModelStore,
+    private val ui: Listener,
+    initialVoice: VoiceEngine,
+) {
     interface Listener {
         fun onStatus(text: String)
         fun onReplyText(turn: Int, piece: String)
@@ -30,8 +37,9 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
 
     private val llmExec = Executors.newSingleThreadExecutor { Thread(it, "llm") }
     private val ttsQueue = LinkedBlockingQueue<TtsJob>()
-    private lateinit var voice: Voice
-    private lateinit var audio: AudioOut
+    @Volatile private lateinit var voice: Voice
+    @Volatile private lateinit var audio: AudioOut
+    @Volatile var voiceEngine: VoiceEngine = initialVoice; private set
     private var robot: RobotFilter? = null
 
     @Volatile private var currentTurn = 0
@@ -52,21 +60,60 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
         val llmMs = SystemClock.elapsedRealtime() - t
 
         ui.onStatus("Loading voice…")
+        if (!store.voiceReady(voiceEngine)) voiceEngine = VoiceEngine.KOKORO_INT8
         t = SystemClock.elapsedRealtime()
-        voice = Voice(store.voiceDir, TTS_THREADS)
+        loadVoice(voiceEngine)
         val voiceMs = SystemClock.elapsedRealtime() - t
-        audio = AudioOut(voice.sampleRate)
         Thread(::ttsLoop, "tts").apply { isDaemon = true; start() }
 
         applyCharacter(character)
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmMs} ms | voice ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts $TTS_THREADS")
+            appendLine("LOAD  llm ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts $TTS_THREADS")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
         ui.onStatus("Ready")
         onReady()
+    }
+
+    /** Must run on the llm thread: nothing else touches the voice while it's swapped. */
+    private fun loadVoice(e: VoiceEngine) = synchronized(voiceLock) {
+        val old = if (::voice.isInitialized) voice else null
+        old?.release()
+        val v = Voice(e, store.voiceDir(e), TTS_THREADS)
+        if (!::audio.isInitialized || audioRate != v.sampleRate) {
+            if (::audio.isInitialized) audio.release()
+            audio = AudioOut(v.sampleRate)
+            audioRate = v.sampleRate
+        }
+        voice = v
+        voiceEngine = e
+        robot = if (character.robot) RobotFilter(v.sampleRate) else null
+    }
+
+    private var audioRate = 0
+
+    /** Held while synthesizing and while swapping engines, so a switch never frees a voice mid-synthesis. */
+    private val voiceLock = Any()
+
+    /** Downloads the engine if needed, then swaps it in between turns. */
+    fun switchVoice(e: VoiceEngine, onDone: (String?) -> Unit) {
+        stop()
+        llmExec.execute {
+            try {
+                store.ensureVoice(e) { what, done, total ->
+                    ui.onStatus(if (total > 0) "$what ${done * 100 / total}% (${done shr 20}/${total shr 20} MB)" else what)
+                }
+                ui.onStatus("Loading ${e.label}…")
+                loadVoice(e)
+                ui.onStatus("Ready")
+                onDone(null)
+            } catch (t: Throwable) {
+                ui.onStatus("Voice switch failed: ${t.message}")
+                onDone(t.message ?: "failed")
+            }
+        }
     }
 
     fun select(c: Character) {
@@ -83,7 +130,7 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
     fun say(text: String): Int {
         stop()
         val turn = ++currentTurn
-        val trace = TurnTrace(turn, character.name, SystemClock.elapsedRealtime())
+        val trace = TurnTrace(turn, "${character.name}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
         llmExec.execute {
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
@@ -111,7 +158,8 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
     fun benchVoice(onPartial: (String) -> Unit, onDone: (String) -> Unit) {
         stop()
         llmExec.execute {
-            val report = dev.playground.companion.engine.VoiceBench.run(store.voiceDir, character.speakerId) { status, partial ->
+            val engines = VoiceEngine.entries.filter(store::voiceReady).map { it to store.voiceDir(it) }
+            val report = VoiceBench.run(engines, character.id) { status, partial ->
                 ui.onStatus(status)
                 onPartial(partial)
             }
@@ -137,17 +185,21 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
                     val text = SpeechText.clean(job.text)
                     if (!SpeechText.speakable(text)) continue
                     val t0 = now()
-                    var samples = voice.synth(text, character.speakerId, character.speed)
-                    robot?.let { samples = it.apply(samples) }
-                    val synthMs = now() - t0
-                    val audioMs = samples.size * 1000L / voice.sampleRate
-                    job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
-                    if (job.turn != currentTurn) continue
-                    audio.enqueue(samples, onStart = {
-                        if (job.trace.firstAudioAt == 0L) job.trace.firstAudioAt = now()
-                    })
+                    synchronized(voiceLock) {
+                        if (job.turn != currentTurn) return@synchronized
+                        val v = voice
+                        var samples = v.synth(text, v.engine.speakerFor(character.id), character.speed)
+                        robot?.let { samples = it.apply(samples) }
+                        val synthMs = now() - t0
+                        val audioMs = samples.size * 1000L / v.sampleRate
+                        job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
+                        if (job.turn != currentTurn) return@synchronized
+                        audio.enqueue(samples, onStart = {
+                            if (job.trace.firstAudioAt == 0L) job.trace.firstAudioAt = now()
+                        })
+                    }
                 }
-                is TtsJob.End -> audio.marker {
+                is TtsJob.End -> synchronized(voiceLock) { audio }.marker {
                     job.trace.doneAt = now()
                     job.trace.memAfter = MemProbe.read(ctx)
                     ui.onTurnDone(job.turn, job.trace.report())

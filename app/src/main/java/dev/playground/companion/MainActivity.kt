@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import dev.playground.companion.engine.VoiceEngine
 import kotlin.concurrent.thread
 
 /** Test bench UI for the spine. Deliberately plain: the avatar comes later. */
@@ -30,14 +31,17 @@ class MainActivity : Activity(), Pipeline.Listener {
     private lateinit var input: EditText
     private lateinit var send: Button
     private lateinit var download: Button
+    private lateinit var voiceButton: Button
     private val charButtons = mutableListOf<Button>()
+    private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var liveTurn = -1
     private val reports = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = ModelStore(filesDir)
-        pipeline = Pipeline(applicationContext, store, this)
+        val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
+        pipeline = Pipeline(applicationContext, store, this, saved ?: VoiceEngine.KOKORO_INT8)
         val root = buildUi()
         setContentView(root)
         // Target SDK 35 draws edge-to-edge: pad for the status/nav bars and the keyboard,
@@ -106,6 +110,11 @@ class MainActivity : Activity(), Pipeline.Listener {
         root.addView(row)
 
         val tools = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        voiceButton = Button(this).apply {
+            isEnabled = false
+            setOnClickListener { cycleVoice() }
+        }
+        tools.addView(voiceButton, LinearLayout.LayoutParams(0, -2, 1.3f))
         tools.addView(Button(this).apply {
             text = "Bench voice"
             setOnClickListener {
@@ -167,7 +176,27 @@ class MainActivity : Activity(), Pipeline.Listener {
                 metrics.text = pipeline.loadReport + "\n"
                 send.isEnabled = true
                 charButtons.forEach { it.isEnabled = true }
+                voiceButton.isEnabled = true
+                voiceButton.text = "Voice: ${pipeline.voiceEngine.label}"
                 highlight()
+            }
+        }
+    }
+
+    private fun cycleVoice() {
+        if (!send.isEnabled) return
+        val all = VoiceEngine.entries
+        val next = all[(all.indexOf(pipeline.voiceEngine) + 1) % all.size]
+        val note = if (store.voiceReady(next)) "" else " (downloading ~${next.approxMb} MB)"
+        send.isEnabled = false
+        voiceButton.isEnabled = false
+        transcript.append("\n— switching voice to ${next.label}$note —\n")
+        pipeline.switchVoice(next) { err ->
+            runOnUiThread {
+                if (err == null) prefs.edit().putString(PREF_VOICE, next.name).apply()
+                voiceButton.text = "Voice: ${pipeline.voiceEngine.label}"
+                voiceButton.isEnabled = true
+                send.isEnabled = true
             }
         }
     }
@@ -199,5 +228,9 @@ class MainActivity : Activity(), Pipeline.Listener {
     override fun onTurnDone(turn: Int, report: String) = runOnUiThread {
         reports.append(report).append("\n\n")
         metrics.text = pipeline.loadReport + "\n\n" + report
+    }
+
+    private companion object {
+        const val PREF_VOICE = "voice_engine"
     }
 }
