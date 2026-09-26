@@ -19,13 +19,13 @@ class ModelStore(root: File) {
     fun voiceDir(e: VoiceEngine) = File(dir, e.dirName)
     fun voiceReady(e: VoiceEngine) = File(voiceDir(e), ".ok").exists()
 
-    /** The LLM plus the default voice are needed to start; other voices download on demand. */
-    fun ready() = llmFile.exists() && voiceReady(VoiceEngine.KOKORO_INT8)
+    /** The LLM plus any one voice are needed to start; other voices download on demand. */
+    fun ready() = llmFile.exists() && VoiceEngine.entries.any(::voiceReady)
 
     /** progress(label, doneBytes, totalBytes) */
     fun ensure(progress: (String, Long, Long) -> Unit) {
         if (!llmFile.exists()) download(LLM_URL, llmFile) { d, t -> progress("LLM (Qwen2.5 1.5B)", d, t) }
-        ensureVoice(VoiceEngine.KOKORO_INT8, progress)
+        if (VoiceEngine.entries.none(::voiceReady)) ensureVoice(DEFAULT_VOICE, progress)
     }
 
     fun ensureVoice(e: VoiceEngine, progress: (String, Long, Long) -> Unit) {
@@ -89,8 +89,10 @@ class ModelStore(root: File) {
         }
     }
 
-    private companion object {
-        const val LLM_URL =
+    companion object {
+        /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
+        val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3
+        private const val LLM_URL =
             "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
     }
 }

@@ -1,5 +1,6 @@
 package dev.playground.companion.engine
 
+import com.k2fsa.sherpa.onnx.GenerationConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
@@ -19,19 +20,21 @@ enum class VoiceEngine(
     val dirName: String,
     val url: String,
     val approxMb: Int,
+    /** Best thread count measured on S24 Ultra (Voice bench, v0.4.1). */
+    val threads: Int,
     private val speakers: Map<String, Int>,
 ) {
     KOKORO_INT8(
-        "Kokoro int8", "kokoro-int8-en-v0_19", tts("kokoro-int8-en-v0_19"), 103,
+        "Kokoro int8", "kokoro-int8-en-v0_19", tts("kokoro-int8-en-v0_19"), 103, 4,
         mapOf("girl" to 1, "boy" to 6, "machine" to 9),
     ),
     KOKORO_FP32(
-        "Kokoro fp32", "kokoro-en-v0_19", tts("kokoro-en-v0_19"), 320,
+        "Kokoro fp32", "kokoro-en-v0_19", tts("kokoro-en-v0_19"), 320, 6,
         mapOf("girl" to 1, "boy" to 6, "machine" to 9),
     ),
     SUPERTONIC3(
         "Supertonic 3", "sherpa-onnx-supertonic-3-tts-int8-2026-05-11",
-        tts("sherpa-onnx-supertonic-3-tts-int8-2026-05-11"), 129,
+        tts("sherpa-onnx-supertonic-3-tts-int8-2026-05-11"), 129, 2,
         mapOf("girl" to 1, "boy" to 6, "machine" to 9),
     );
 
@@ -70,13 +73,18 @@ enum class VoiceEngine(
 private fun tts(name: String) = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$name.tar.bz2"
 
 /** One loaded TTS engine via sherpa-onnx. Serves all characters (voice = speaker id). */
-class Voice(val engine: VoiceEngine, modelDir: File, threads: Int, provider: String = "cpu") {
+class Voice(val engine: VoiceEngine, modelDir: File, threads: Int = engine.threads, provider: String = "cpu") {
     private val tts = OfflineTts(config = OfflineTtsConfig(model = engine.config(modelDir, threads, provider)))
 
     val sampleRate: Int = tts.sampleRate()
 
-    fun synth(text: String, speakerId: Int, speed: Float): FloatArray =
-        tts.generate(text, sid = speakerId, speed = speed).samples
+    /** [steps]: denoising steps for flow-matching engines (Supertonic); ignored by Kokoro. */
+    fun synth(text: String, speakerId: Int, speed: Float, steps: Int = DEFAULT_STEPS): FloatArray =
+        tts.generateWithConfig(text, GenerationConfig(sid = speakerId, speed = speed, numSteps = steps)).samples
+
+    companion object {
+        const val DEFAULT_STEPS = 5
+    }
 
     fun release() = tts.release()
 }

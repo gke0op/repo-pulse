@@ -41,7 +41,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         super.onCreate(savedInstanceState)
         store = ModelStore(filesDir)
         val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
-        pipeline = Pipeline(applicationContext, store, this, saved ?: VoiceEngine.KOKORO_INT8)
+        pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE)
         val root = buildUi()
         setContentView(root)
         // Target SDK 35 draws edge-to-edge: pad for the status/nav bars and the keyboard,
@@ -82,7 +82,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
         download = Button(this).apply {
-            text = "Download models (~1.2 GB, once)"
+            text = "Download models (~1.25 GB, once)"
             visibility = View.GONE
             setOnClickListener { runDownload() }
         }

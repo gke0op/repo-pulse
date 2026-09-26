@@ -60,7 +60,7 @@ class Pipeline(
         val llmMs = SystemClock.elapsedRealtime() - t
 
         ui.onStatus("Loading voice…")
-        if (!store.voiceReady(voiceEngine)) voiceEngine = VoiceEngine.KOKORO_INT8
+        if (!store.voiceReady(voiceEngine)) voiceEngine = VoiceEngine.entries.first(store::voiceReady)
         t = SystemClock.elapsedRealtime()
         loadVoice(voiceEngine)
         val voiceMs = SystemClock.elapsedRealtime() - t
@@ -69,7 +69,7 @@ class Pipeline(
         applyCharacter(character)
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts $TTS_THREADS")
+            appendLine("LOAD  llm ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts ${voiceEngine.threads}")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
@@ -81,7 +81,7 @@ class Pipeline(
     private fun loadVoice(e: VoiceEngine) = synchronized(voiceLock) {
         val old = if (::voice.isInitialized) voice else null
         old?.release()
-        val v = Voice(e, store.voiceDir(e), TTS_THREADS)
+        val v = Voice(e, store.voiceDir(e))
         // First synth pays ONNX Runtime's graph setup (~0.7 s measured); pay it now, not on the first reply.
         v.synth("Hi.", e.speakerFor(character.id), 1f)
         if (!::audio.isInitialized || audioRate != v.sampleRate) {
@@ -215,7 +215,6 @@ class Pipeline(
     companion object {
         const val N_CTX = 2048
         const val LLM_THREADS = 4
-        const val TTS_THREADS = 4
         const val MAX_REPLY_TOKENS = 160
     }
 }
