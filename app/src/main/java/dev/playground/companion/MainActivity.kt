@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
@@ -218,6 +220,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         if (micOn) {
             micOn = false
             ears?.stop()
+            setCallMode(false)
             micButton.text = "Mic: off"
             status.text = "Ready"
             return
@@ -234,6 +237,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                     runOnUiThread { status.text = "$what$pct" }
                 }
                 val e = ears ?: Ears(store.asrDir, store.vadFile, earsListener).also { ears = it }
+                runOnUiThread { setCallMode(true) }
                 e.start()
                 micOn = true
                 runOnUiThread {
@@ -249,6 +253,30 @@ class MainActivity : Activity(), Pipeline.Listener {
                 }
             }
         }
+    }
+
+    /** Call audio mode on the loudspeaker while listening, so echo cancellation has a reference. */
+    private fun setCallMode(on: Boolean) {
+        val am = getSystemService(AUDIO_SERVICE) as AudioManager
+        if (on) {
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                am.availableCommunicationDevices.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                    ?.let { am.setCommunicationDevice(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = true
+            }
+        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                am.clearCommunicationDevice()
+            } else {
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = false
+            }
+            am.mode = AudioManager.MODE_NORMAL
+        }
+        pipeline.setVoiceCallAudio(on)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -283,6 +311,7 @@ class MainActivity : Activity(), Pipeline.Listener {
 
     override fun onDestroy() {
         ears?.release()
+        if (micOn) setCallMode(false)
         super.onDestroy()
     }
 

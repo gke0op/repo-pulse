@@ -9,7 +9,7 @@ import java.util.concurrent.LinkedBlockingQueue
  * Gapless streaming player. Chunks are queued and written on a dedicated thread;
  * [flush] drops everything instantly (the hook barge-in will use).
  */
-class AudioOut(private val sampleRate: Int) {
+class AudioOut(private val sampleRate: Int, voiceCall: Boolean = false) {
     private class Item(val samples: FloatArray, val onStart: (() -> Unit)?, val onEnd: (() -> Unit)?)
 
     private val queue = LinkedBlockingQueue<Item>()
@@ -18,7 +18,9 @@ class AudioOut(private val sampleRate: Int) {
     private val track = AudioTrack.Builder()
         .setAudioAttributes(
             AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
+                // In a voice-call route, the platform echo canceller gets this playback as its
+                // reference and can subtract it from the mic. As media it's invisible to AEC.
+                .setUsage(if (voiceCall) AudioAttributes.USAGE_VOICE_COMMUNICATION else AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .build(),
         )

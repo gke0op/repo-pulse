@@ -85,17 +85,34 @@ class Pipeline(
         val v = Voice(e, store.voiceDir(e))
         // First synth pays ONNX Runtime's graph setup (~0.7 s measured); pay it now, not on the first reply.
         v.synth("Hi.", e.speakerFor(character.id), 1f)
-        if (!::audio.isInitialized || audioRate != v.sampleRate) {
-            if (::audio.isInitialized) audio.release()
-            audio = AudioOut(v.sampleRate)
-            audioRate = v.sampleRate
-        }
+        if (!::audio.isInitialized || audioRate != v.sampleRate) rebuildAudio(v.sampleRate)
         voice = v
         voiceEngine = e
         robot = if (character.robot) RobotFilter(v.sampleRate) else null
     }
 
     private var audioRate = 0
+    @Volatile private var voiceCall = false
+
+    private fun rebuildAudio(rate: Int) {
+        if (::audio.isInitialized) audio.release()
+        audio = AudioOut(rate, voiceCall)
+        audioRate = rate
+    }
+
+    /**
+     * Mic on => play through the voice-call path (with loudspeaker) so the echo canceller
+     * can remove her voice from what the mic hears. Mic off => normal media playback.
+     */
+    fun setVoiceCallAudio(on: Boolean) {
+        stop()
+        llmExec.execute {
+            synchronized(voiceLock) {
+                voiceCall = on
+                if (::voice.isInitialized) rebuildAudio(voice.sampleRate)
+            }
+        }
+    }
 
     /** Held while synthesizing and while swapping engines, so a switch never frees a voice mid-synthesis. */
     private val voiceLock = Any()
@@ -137,12 +154,14 @@ class Pipeline(
     @Volatile private var replySoFar = StringBuilder()
 
     /**
-     * Barge-in: VAD hears speech while she talks. Two recognized words that aren't her own
+     * Barge-in: VAD hears speech while she talks. Three recognized words that aren't her own
      * echo are enough to cut her off; the rest of the utterance keeps flowing into ASR.
      */
     fun onUserSpeech(partial: String): Boolean {
         if (!speaking) return false
-        if (EchoGuard.words(partial).size < 2 || EchoGuard.isEcho(partial, replySoFar.toString())) return false
+        // 3 words, not 2: EchoGuard can only judge 3+ words, and 2-word echoes of her own
+        // voice were cutting her off (v0.6 on S24 Ultra).
+        if (EchoGuard.words(partial).size < 3 || EchoGuard.isEcho(partial, replySoFar.toString())) return false
         stop()
         return true
     }
@@ -249,7 +268,7 @@ class Pipeline(
         const val LLM_THREADS = 4
         const val MAX_REPLY_TOKENS = 160
         /** After she stops, mic text matching her words is still treated as echo for this long. */
-        const val ECHO_WINDOW_MS = 1500L
+        const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
     }
 }
 

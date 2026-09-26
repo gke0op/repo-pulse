@@ -53,6 +53,9 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
                 rule3 = EndpointRule(false, 0.0f, 20.0f),
             ),
             enableEndpoint = true,
+            // Beam search fixed name slips greedy made on desktop tests ("murra" -> "mira").
+            decodingMethod = "modified_beam_search",
+            maxActivePaths = 4,
         ),
     )
 
