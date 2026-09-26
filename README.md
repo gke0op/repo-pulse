@@ -3,26 +3,27 @@
 A fully local AI companion for Android: three fixed characters (a girl, a boy, a machine), 3D and voiced,
 with no server and a one-time purchase. This repo used to be Repo Pulse; that code lives at `ebf0fba`.
 
-## Status: v0.1 "spine"
+## Status: v0.6 "ears"
 
-Text in → streaming LLM → speakable chunks → TTS → audio, all overlapped, with a timing and RAM trace for every turn.
-No microphone and no avatar yet. This build exists to measure a real phone.
+Voice conversation, all on the phone: mic → streaming ASR → LLM → chunker → TTS → audio,
+with barge-in (talk over her and she stops). Every turn records a timing and RAM trace.
 
-| Stage | Tech | Why |
+| Stage | Tech | Measured (S24 Ultra unless noted) |
 |---|---|---|
-| LLM | llama.cpp (built from source, CPU variants picked at runtime), Qwen2.5-1.5B-Instruct Q4_K_M | mmap'd weights, cached history prefix, cancellable |
-| Chunking | `SentenceChunker` | first chunk splits at a clause so the voice starts early |
-| TTS | sherpa-onnx + Kokoro-82M int8 | natural voice, 11 speakers, Apache 2.0 |
-| Audio | `AudioTrack` float stream | gapless playback, instant flush for barge-in |
+| Ears | sherpa-onnx streaming Zipformer (2023-06-26, int8) + Silero VAD, VOICE_COMMUNICATION mic with platform AEC | RTF 0.095 on desktop; end of turn ~0.9 s after last word |
+| LLM | llama.cpp (runtime CPU variant), Qwen2.5-1.5B-Instruct Q4_K_M | first token ~220 ms, ~22 tok/s |
+| Chunking | `SentenceChunker` | first chunk at a clause or before a conjunction |
+| Voice | Supertonic 3 (default, 2 threads); Kokoro fp32/int8 switchable | RTF 0.40, first audio ~1.0 s after Send |
+| Audio | `AudioTrack` float stream | gapless, instant flush for barge-in |
 
-Characters: Mira (Kokoro `af_bella`), Kai (`am_michael`), Unit Seven (`bm_george` + ring-mod robot filter).
+Characters: Mira, Kai, Unit Seven (robot filter). Voices download on demand; the choice is remembered.
 
 ## Build
 
 ```bash
 ./scripts/fetch-deps.sh          # llama.cpp source + sherpa-onnx Android libs
 ./gradlew :app:assembleDebug     # -> app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:testDebugUnitTest # chunker tests
+./gradlew :app:testDebugUnitTest # chunker, echo guard, ASR casing
 ```
 
 Needs the Android SDK with NDK 28.2.13676358 and CMake 3.31.6 (`local.properties` → `sdk.dir`).
@@ -39,6 +40,7 @@ prefix reuse, cancellation, and history trimming when the context fills.
 
 ## Using the test APK
 
-1. Install, open, tap **Download models** (~1.2 GB, once; resumable).
-2. Pick a character, type, send. **Stop** cuts generation and audio.
-3. **Copy report** puts per-turn timings (first audio, tok/s, TTS RTF, RAM) on the clipboard.
+1. Install, open, tap **Download models** (~1.25 GB, once; resumable).
+2. Pick a character, type, send, or tap **Mic** (downloads ~73 MB of speech models once) and talk.
+3. **Stop** cuts generation and audio; talking over her does the same.
+4. **Bench voice** times every downloaded voice; **Copy report** copies all traces.

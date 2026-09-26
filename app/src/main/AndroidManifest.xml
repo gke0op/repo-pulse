@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Only used for the one-time model download. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Always-on listening for voice conversation; audio never leaves the phone. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="Companion (spine)"

@@ -28,6 +28,22 @@ class ModelStore(root: File) {
         if (VoiceEngine.entries.none(::voiceReady)) ensureVoice(DEFAULT_VOICE, progress)
     }
 
+    val asrDir = File(dir, "asr-zipformer-en-2023-06-26-int8")
+    val vadFile = File(dir, "silero_vad.onnx")
+    fun earsReady() = File(asrDir, ".ok").exists() && vadFile.exists()
+
+    /** Streaming ASR (int8 files only, ~73 MB) + Silero VAD. */
+    fun ensureEars(progress: (String, Long, Long) -> Unit) {
+        if (!vadFile.exists()) download(VAD_URL, vadFile) { d, t -> progress("Voice activity model", d, t) }
+        if (File(asrDir, ".ok").exists()) return
+        asrDir.mkdirs()
+        for (name in ASR_FILES) {
+            val f = File(asrDir, name)
+            if (!f.exists()) download("$ASR_BASE/$name", f) { d, t -> progress("Speech recognition ($name)", d, t) }
+        }
+        File(asrDir, ".ok").writeText("ok")
+    }
+
     fun ensureVoice(e: VoiceEngine, progress: (String, Long, Long) -> Unit) {
         if (voiceReady(e)) return
         val tar = File(dir, "${e.dirName}.tar.bz2")
@@ -92,6 +108,14 @@ class ModelStore(root: File) {
     companion object {
         /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
         val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3
+        private const val VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
+        private const val ASR_BASE = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main"
+        private val ASR_FILES = listOf(
+            "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+            "tokens.txt",
+        )
         private const val LLM_URL =
             "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
     }

@@ -3,6 +3,7 @@ package dev.playground.companion
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
@@ -17,6 +18,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.Manifest
+import dev.playground.companion.engine.Ears
 import dev.playground.companion.engine.VoiceEngine
 import kotlin.concurrent.thread
 
@@ -32,6 +35,9 @@ class MainActivity : Activity(), Pipeline.Listener {
     private lateinit var send: Button
     private lateinit var download: Button
     private lateinit var voiceButton: Button
+    private lateinit var micButton: Button
+    private var ears: Ears? = null
+    @Volatile private var micOn = false
     private val charButtons = mutableListOf<Button>()
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var liveTurn = -1
@@ -115,6 +121,12 @@ class MainActivity : Activity(), Pipeline.Listener {
             setOnClickListener { cycleVoice() }
         }
         tools.addView(voiceButton, LinearLayout.LayoutParams(0, -2, 1.3f))
+        micButton = Button(this).apply {
+            text = "Mic: off"
+            isEnabled = false
+            setOnClickListener { toggleMic() }
+        }
+        tools.addView(micButton, LinearLayout.LayoutParams(0, -2, 1f))
         tools.addView(Button(this).apply {
             text = "Bench voice"
             setOnClickListener {
@@ -178,6 +190,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                 charButtons.forEach { it.isEnabled = true }
                 voiceButton.isEnabled = true
                 voiceButton.text = "Voice: ${pipeline.voiceEngine.label}"
+                micButton.isEnabled = true
                 highlight()
             }
         }
@@ -199,6 +212,78 @@ class MainActivity : Activity(), Pipeline.Listener {
                 send.isEnabled = true
             }
         }
+    }
+
+    private fun toggleMic() {
+        if (micOn) {
+            micOn = false
+            ears?.stop()
+            micButton.text = "Mic: off"
+            status.text = "Ready"
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            return
+        }
+        micButton.isEnabled = false
+        thread(name = "ears-load") {
+            try {
+                store.ensureEars { what, done, total ->
+                    val pct = if (total > 0) " ${done * 100 / total}%" else ""
+                    runOnUiThread { status.text = "$what$pct" }
+                }
+                val e = ears ?: Ears(store.asrDir, store.vadFile, earsListener).also { ears = it }
+                e.start()
+                micOn = true
+                runOnUiThread {
+                    micButton.text = "Mic: on"
+                    micButton.isEnabled = true
+                    status.text = "Listening…"
+                    Thread { Thread.sleep(800); runOnUiThread { metrics.append("\nMIC   echo canceller: ${if (e.echoCancel) "on" else "unavailable"}\n") } }.start()
+                }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    status.text = "Mic failed: ${t.message}"
+                    micButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_MIC && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) toggleMic()
+        else if (requestCode == REQ_MIC) status.text = "Microphone permission denied"
+    }
+
+    private val earsListener = object : Ears.Listener {
+        override fun onPartial(text: String) {
+            if (!micOn) return
+            runOnUiThread { status.text = if (text.isEmpty()) "Listening…" else "hearing: $text" }
+        }
+
+        override fun onSpeechActivity(partial: String) {
+            if (micOn && pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
+        }
+
+        override fun onFinal(text: String, lastVoiceAt: Long) {
+            if (!micOn || !send.isEnabled) return
+            val turn = pipeline.onUserUtterance(text, lastVoiceAt)
+            runOnUiThread {
+                if (turn < 0) {
+                    status.text = "(ignored echo: $text)"
+                } else {
+                    transcript.append("\nYou 🎤: $text\n${pipeline.character.name}: ")
+                    liveTurn = turn
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        ears?.release()
+        super.onDestroy()
     }
 
     private fun selectCharacter(c: Character) {
@@ -232,5 +317,6 @@ class MainActivity : Activity(), Pipeline.Listener {
 
     private companion object {
         const val PREF_VOICE = "voice_engine"
+        const val REQ_MIC = 1
     }
 }

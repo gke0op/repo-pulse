@@ -3,6 +3,7 @@ package dev.playground.companion
 import android.content.Context
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
+import dev.playground.companion.engine.EchoGuard
 import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.RobotFilter
@@ -129,10 +130,37 @@ class Pipeline(
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
     }
 
-    fun say(text: String): Int {
+    /** True from a turn's start until its last audio has played. */
+    val speaking: Boolean get() = activeTurn == currentTurn && activeTurn != 0
+    @Volatile private var activeTurn = 0
+    @Volatile private var speakingEndedAt = 0L
+    @Volatile private var replySoFar = StringBuilder()
+
+    /**
+     * Barge-in: VAD hears speech while she talks. Two recognized words that aren't her own
+     * echo are enough to cut her off; the rest of the utterance keeps flowing into ASR.
+     */
+    fun onUserSpeech(partial: String): Boolean {
+        if (!speaking) return false
+        if (EchoGuard.words(partial).size < 2 || EchoGuard.isEcho(partial, replySoFar.toString())) return false
+        stop()
+        return true
+    }
+
+    /** A finished utterance from the mic. Returns the turn id, or -1 if it was her own echo. */
+    fun onUserUtterance(text: String, lastVoiceAt: Long): Int {
+        val recentlySpeaking = speaking || SystemClock.elapsedRealtime() - speakingEndedAt < ECHO_WINDOW_MS
+        if (recentlySpeaking && EchoGuard.isEcho(text, replySoFar.toString())) return -1
+        return say(text, heardAt = lastVoiceAt)
+    }
+
+    fun say(text: String, heardAt: Long = 0L): Int {
         stop()
         val turn = ++currentTurn
+        activeTurn = turn
+        replySoFar = StringBuilder()
         val trace = TurnTrace(turn, "${character.name}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
+        trace.heardAt = heardAt
         llmExec.execute {
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
@@ -144,6 +172,7 @@ class Pipeline(
             val stats = NativeLlm.replyStreaming(text, MAX_REPLY_TOKENS) { bytes ->
                 if (trace.firstPieceAt == 0L) trace.firstPieceAt = now()
                 val piece = String(bytes, Charsets.UTF_8)
+                if (turn == currentTurn) replySoFar.append(piece)
                 ui.onReplyText(turn, piece)
                 chunker.push(piece).forEach(::emit)
                 turn == currentTurn
@@ -172,6 +201,8 @@ class Pipeline(
 
     /** Stops generation and silences audio immediately. */
     fun stop() {
+        if (speaking) speakingEndedAt = now()
+        activeTurn = 0
         currentTurn++
         NativeLlm.cancel()
         ttsQueue.clear()
@@ -202,6 +233,7 @@ class Pipeline(
                     }
                 }
                 is TtsJob.End -> synchronized(voiceLock) { audio }.marker {
+                    if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
                     job.trace.doneAt = now()
                     job.trace.memAfter = MemProbe.read(ctx)
                     ui.onTurnDone(job.turn, job.trace.report())
@@ -216,12 +248,16 @@ class Pipeline(
         const val N_CTX = 2048
         const val LLM_THREADS = 4
         const val MAX_REPLY_TOKENS = 160
+        /** After she stops, mic text matching her words is still treated as echo for this long. */
+        const val ECHO_WINDOW_MS = 1500L
     }
 }
 
 class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     class Chunk(val chars: Int, val synthMs: Long, val audioMs: Long)
 
+    /** When VAD last heard the user (voice turns only). */
+    @Volatile var heardAt = 0L
     @Volatile var firstPieceAt = 0L
     @Volatile var firstChunkAt = 0L
     @Volatile var firstChunkText = ""
@@ -237,7 +273,10 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
 
     fun report(): String = buildString {
         val l = llm
-        appendLine("TURN #$turn ($who)")
+        appendLine("TURN #$turn ($who)${if (heardAt > 0) " [voice]" else ""}")
+        if (heardAt > 0 && firstAudioAt > 0) {
+            appendLine("  you stopped -> her voice : ${firstAudioAt - heardAt} ms   <- from your last sound (incl. end-of-turn wait)")
+        }
         appendLine("  first audio : ${rel(firstAudioAt)}   <- time until you hear a voice")
         append("  first token : ${rel(firstPieceAt)}")
         if (l != null) append("  (prefill ${l.promptTokens} tok in ${"%.0f".format(l.prefillMs)} ms)")
