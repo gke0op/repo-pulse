@@ -166,11 +166,17 @@ class Pipeline(
         return true
     }
 
-    /** A finished utterance from the mic. Returns the turn id, or -1 if it was her own echo. */
-    fun onUserUtterance(text: String, lastVoiceAt: Long): Int {
+    sealed class Heard {
+        class Turn(val id: Int) : Heard()
+        class Ignored(val reason: String) : Heard()
+    }
+
+    /** A finished utterance from the mic: starts a turn, or says why it was ignored. */
+    fun onUserUtterance(text: String, lastVoiceAt: Long, voicedMs: Int): Heard {
+        EchoGuard.rejectReason(text, voicedMs)?.let { return Heard.Ignored(it) }
         val recentlySpeaking = speaking || SystemClock.elapsedRealtime() - speakingEndedAt < ECHO_WINDOW_MS
-        if (recentlySpeaking && EchoGuard.isEcho(text, replySoFar.toString())) return -1
-        return say(text, heardAt = lastVoiceAt)
+        if (recentlySpeaking && EchoGuard.isEcho(text, replySoFar.toString())) return Heard.Ignored("her own echo")
+        return Heard.Turn(say(text, heardAt = lastVoiceAt))
     }
 
     fun say(text: String, heardAt: Long = 0L): Int {

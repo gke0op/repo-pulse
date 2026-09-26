@@ -22,3 +22,12 @@ class SentenceCaseTest {
     @Test fun capsBecomeSentenceCase() =
         org.junit.Assert.assertEquals("Honestly I think I'm tired", Ears.sentenceCase("HONESTLY I THINK I'M TIRED"))
 }
+
+class NoiseGateTest {
+    @Test fun loneAndIsNoise() = org.junit.Assert.assertEquals("lone filler word", EchoGuard.rejectReason("And", 900))
+    @Test fun briefBlipIsNoise() = org.junit.Assert.assertNotNull(EchoGuard.rejectReason("Three", 200))
+    @Test fun shortRealAnswersPass() {
+        org.junit.Assert.assertNull(EchoGuard.rejectReason("No", 320))
+        org.junit.Assert.assertNull(EchoGuard.rejectReason("Hello Mira", 700))
+    }
+}

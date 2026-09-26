@@ -29,8 +29,11 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
     interface Listener {
         /** Text so far for the current utterance (updates while you talk). */
         fun onPartial(text: String)
-        /** The utterance ended (trailing silence). [lastVoiceAt] is when VAD last heard speech. */
-        fun onFinal(text: String, lastVoiceAt: Long)
+        /**
+         * The utterance ended (trailing silence). [lastVoiceAt] is when VAD last heard speech;
+         * [voicedMs] is how much of the utterance VAD judged to be speech.
+         */
+        fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int)
         /** VAD sees speech right now: the hook for barge-in. */
         fun onSpeechActivity(partial: String)
     }
@@ -74,6 +77,10 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
     )
 
     @Volatile private var running = false
+    @Volatile private var discard = false
+
+    /** Drop whatever is buffered for the current utterance (e.g. her echo tail after she stops). */
+    fun discardUtterance() { discard = true }
     private var thread: Thread? = null
     var echoCancel: Boolean = false; private set
 
@@ -112,12 +119,21 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
         var lastText = ""
         var lastChangeAt = 0L
         var lastVoiceAt = 0L
+        var voicedMs = 0
         try {
             rec.startRecording()
             while (running) {
                 val n = rec.read(pcm, 0, pcm.size)
                 if (n <= 0) continue
                 val samples = FloatArray(n) { pcm[it] / 32768f }
+
+                if (discard) {
+                    discard = false
+                    recognizer.reset(stream)
+                    lastText = ""
+                    voicedMs = 0
+                    listener.onPartial("")
+                }
 
                 vad.acceptWaveform(samples)
                 while (!vad.empty()) vad.pop() // we only need the live speech flag, not segments
@@ -132,15 +148,17 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
                 }
                 if (vad.isSpeechDetected()) {
                     lastVoiceAt = SystemClock.elapsedRealtime()
+                    voicedMs += n * 1000 / SAMPLE_RATE
                     listener.onSpeechActivity(text)
                 }
 
                 if (recognizer.isEndpoint(stream)) {
                     // VAD's last speech is closer to when you actually stopped than ASR's last text
                     // change (measured ~0.7 s ASR lag); fall back to the latter if VAD never fired.
-                    if (text.isNotEmpty()) listener.onFinal(text, if (lastVoiceAt > 0) lastVoiceAt else lastChangeAt)
+                    if (text.isNotEmpty()) listener.onFinal(text, if (lastVoiceAt > 0) lastVoiceAt else lastChangeAt, voicedMs)
                     recognizer.reset(stream)
                     lastText = ""
+                    voicedMs = 0
                     listener.onPartial("")
                 }
             }

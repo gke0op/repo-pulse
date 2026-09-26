@@ -44,6 +44,7 @@ class MainActivity : Activity(), Pipeline.Listener {
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var liveTurn = -1
     private val reports = StringBuilder()
+    private val ignoredLog = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -146,7 +147,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         tools.addView(Button(this).apply {
             text = "Copy report"
             setOnClickListener {
-                val text = pipeline.loadReport + "\n\n" + reports
+                val text = pipeline.loadReport + "\n\n" + reports + ignoredLog
                 (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("report", text))
                 Toast.makeText(this@MainActivity, "Report copied", Toast.LENGTH_SHORT).show()
             }
@@ -295,15 +296,19 @@ class MainActivity : Activity(), Pipeline.Listener {
             if (micOn && pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
         }
 
-        override fun onFinal(text: String, lastVoiceAt: Long) {
+        override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int) {
             if (!micOn || !send.isEnabled) return
-            val turn = pipeline.onUserUtterance(text, lastVoiceAt)
+            val heard = pipeline.onUserUtterance(text, lastVoiceAt, voicedMs)
             runOnUiThread {
-                if (turn < 0) {
-                    status.text = "(ignored echo: $text)"
-                } else {
-                    transcript.append("\nYou 🎤: $text\n${pipeline.character.name}: ")
-                    liveTurn = turn
+                when (heard) {
+                    is Pipeline.Heard.Ignored -> {
+                        status.text = "(ignored \"$text\": ${heard.reason})"
+                        ignoredLog.append("IGNORED \"$text\" (${heard.reason}, voiced ${voicedMs} ms)\n")
+                    }
+                    is Pipeline.Heard.Turn -> {
+                        transcript.append("\nYou 🎤: $text\n${pipeline.character.name}: ")
+                        liveTurn = heard.id
+                    }
                 }
             }
         }
@@ -340,6 +345,8 @@ class MainActivity : Activity(), Pipeline.Listener {
     }
 
     override fun onTurnDone(turn: Int, report: String) = runOnUiThread {
+        // She finished: throw away her echo tail so it can't become a fake user utterance.
+        ears?.discardUtterance()
         reports.append(report).append("\n\n")
         metrics.text = pipeline.loadReport + "\n\n" + report
     }
