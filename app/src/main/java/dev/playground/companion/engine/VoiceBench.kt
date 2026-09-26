@@ -4,7 +4,7 @@ import android.os.SystemClock
 import java.io.File
 
 /**
- * Times every downloaded voice engine on this device (CPU, 2 and 4 threads),
+ * Times every downloaded voice engine on this device (CPU, 2/4/6 threads),
  * so we choose the voice from data, not guesses.
  */
 object VoiceBench {
@@ -15,7 +15,7 @@ object VoiceBench {
     fun run(engines: List<Pair<VoiceEngine, File>>, characterId: String, progress: (String, String) -> Unit): String = buildString {
         appendLine("VOICE BENCH (cpu)")
         appendLine("  engine        thr   load  short(ms)  long synth/audio   RTF")
-        for ((engine, dir) in engines) for (threads in listOf(2, 4)) {
+        for ((engine, dir) in engines) for (threads in listOf(2, 4, 6)) {
             progress("Benchmarking ${engine.label} x$threads…", toString())
             val line = try {
                 var t = SystemClock.elapsedRealtime()

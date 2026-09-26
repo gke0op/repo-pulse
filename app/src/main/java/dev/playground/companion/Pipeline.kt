@@ -82,6 +82,8 @@ class Pipeline(
         val old = if (::voice.isInitialized) voice else null
         old?.release()
         val v = Voice(e, store.voiceDir(e), TTS_THREADS)
+        // First synth pays ONNX Runtime's graph setup (~0.7 s measured); pay it now, not on the first reply.
+        v.synth("Hi.", e.speakerFor(character.id), 1f)
         if (!::audio.isInitialized || audioRate != v.sampleRate) {
             if (::audio.isInitialized) audio.release()
             audio = AudioOut(v.sampleRate)
