@@ -1,0 +1,63 @@
+// Plain C++ LLM engine on top of llama.cpp. No JNI in here so it can be
+// built and tested on a desktop host (see tools/host-test).
+#pragma once
+
+#include <atomic>
+#include <functional>
+#include <string>
+#include <vector>
+
+#include "chat.h"
+#include "llama.h"
+
+struct common_sampler;
+
+struct LlmTurnStats {
+    int    prompt_tokens = 0;   // tokens decoded for this turn's prompt
+    double prefill_ms    = 0;   // time to decode the prompt
+    int    gen_tokens    = 0;   // tokens generated
+    double gen_ms        = 0;   // time spent generating
+    bool   rebuilt       = false; // context overflowed and history was trimmed
+    bool   cancelled     = false;
+};
+
+class LlmEngine {
+public:
+    // Return false from the callback to stop generation early.
+    using PieceFn = std::function<bool(const std::string &)>;
+
+    ~LlmEngine();
+
+    bool load(const std::string & path, int n_ctx, int n_threads);
+    void unload();
+    bool loaded() const { return model_ != nullptr; }
+
+    // Resets the conversation and decodes the system prompt (kept as a cached prefix).
+    bool set_system(const std::string & system_prompt);
+
+    // Appends a user message and streams the assistant reply through on_piece.
+    // Returns the full reply text (partial if cancelled).
+    std::string reply(const std::string & user_text, int max_tokens,
+                      const PieceFn & on_piece, LlmTurnStats & stats);
+
+    void cancel() { cancel_.store(true); }
+
+    std::string system_info() const;
+
+private:
+    std::vector<llama_token> render(bool add_generation_prompt) const;
+    bool sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & stats);
+    bool decode_from(const std::vector<llama_token> & tokens, size_t start);
+
+    llama_model *             model_   = nullptr;
+    llama_context *           ctx_     = nullptr;
+    common_sampler *          sampler_ = nullptr;
+    common_chat_templates_ptr templates_;
+    llama_batch               batch_{};
+    int                       n_ctx_   = 0;
+    int                       n_batch_ = 512;
+
+    std::vector<common_chat_msg> msgs_;      // msgs_[0] is the system message
+    std::vector<llama_token>     kv_tokens_; // exactly what is in the KV cache, in order
+    std::atomic<bool>            cancel_{false};
+};
