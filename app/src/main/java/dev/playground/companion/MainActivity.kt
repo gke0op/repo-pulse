@@ -5,9 +5,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
@@ -36,7 +38,22 @@ class MainActivity : Activity(), Pipeline.Listener {
         super.onCreate(savedInstanceState)
         store = ModelStore(filesDir)
         pipeline = Pipeline(applicationContext, store, this)
-        setContentView(buildUi())
+        val root = buildUi()
+        setContentView(root)
+        // Target SDK 35 draws edge-to-edge: pad for the status/nav bars and the keyboard,
+        // or the bottom buttons sit under Android's navigation bar.
+        val pad = (12 * resources.displayMetrics.density).toInt()
+        root.setOnApplyWindowInsetsListener { v, insets ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val b = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.ime())
+                v.setPadding(pad + b.left, pad + b.top, pad + b.right, pad + b.bottom)
+            } else {
+                @Suppress("DEPRECATION")
+                v.setPadding(pad + insets.systemWindowInsetLeft, pad + insets.systemWindowInsetTop,
+                    pad + insets.systemWindowInsetRight, pad + insets.systemWindowInsetBottom)
+            }
+            insets
+        }
         if (store.ready()) startPipeline() else showDownload()
     }
 
@@ -44,7 +61,6 @@ class MainActivity : Activity(), Pipeline.Listener {
         val pad = (12 * resources.displayMetrics.density).toInt()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad * 3, pad, pad)
             setBackgroundColor(Color.rgb(16, 16, 20))
         }
         val chars = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
