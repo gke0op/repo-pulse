@@ -148,7 +148,7 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
     companion object {
         const val N_CTX = 2048
         const val LLM_THREADS = 4
-        const val TTS_THREADS = 2
+        const val TTS_THREADS = 4
         const val MAX_REPLY_TOKENS = 160
     }
 }

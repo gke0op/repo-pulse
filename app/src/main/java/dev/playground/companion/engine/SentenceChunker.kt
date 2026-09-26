@@ -10,6 +10,7 @@ package dev.playground.companion.engine
 class SentenceChunker(
     private val firstClauseMinWords: Int = 4,
     private val longChunkChars: Int = 140,
+    private val firstChunkMaxWords: Int = 7,
 ) {
     private val buf = StringBuilder()
     private var emitted = 0
@@ -48,8 +49,25 @@ class SentenceChunker(
                 c in CLAUSE -> clauseCuts += i + 1
             }
         }
-        if (emitted == 0) return clauseCuts.firstOrNull { wordCount(buf.substring(0, it)) >= firstClauseMinWords }
+        if (emitted == 0) {
+            clauseCuts.firstOrNull { wordCount(buf.substring(0, it)) >= firstClauseMinWords }?.let { return it }
+            return conjunctionCut()
+        }
         if (buf.length >= longChunkChars) return clauseCuts.lastOrNull()
+        return null
+    }
+
+    /**
+     * First chunk only: with no punctuation yet, cut before a conjunction ("... companion | and help you")
+     * once there are enough words. TTS cost grows with chunk length, so a short first chunk means earlier audio.
+     */
+    private fun conjunctionCut(): Int? {
+        val m = WORD.findAll(buf).toList()
+        if (m.size < firstChunkMaxWords) return null
+        // Need the word after the conjunction too, so we know the conjunction itself is complete.
+        for (k in firstClauseMinWords until m.size - 1) {
+            if (m[k].value.lowercase() in CONJUNCTIONS) return m[k].range.first
+        }
         return null
     }
 
@@ -67,6 +85,8 @@ class SentenceChunker(
         val SENTENCE_END = setOf('.', '!', '?', '…')
         val CLAUSE = setOf(',', ';', ':', '—')
         val CLOSERS = setOf('"', '\'', ')', '”', '’')
+        val WORD = Regex("\\S+")
+        val CONJUNCTIONS = setOf("and", "but", "so", "because", "or", "when", "while", "if", "that", "which")
         val ABBREVIATIONS = setOf("mr.", "mrs.", "ms.", "dr.", "st.", "vs.", "e.g.", "i.e.", "etc.", "jr.", "sr.")
     }
 }

@@ -48,6 +48,17 @@ class SentenceChunkerTest {
         assertEquals("Next", c.flush())
     }
 
+    @Test fun longFirstSentenceBreaksBeforeConjunction() {
+        assertEquals(
+            listOf("Yes, I'm here to be your cheerful companion", "and help you out whenever you need!", "Cool?"),
+            feed("Yes, I'm here to be your cheerful companion and help you out whenever you need! Cool?"),
+        )
+    }
+
+    @Test fun shortFirstSentenceIsNotCutAtConjunction() {
+        assertEquals(listOf("Tea and cake.", "Yes."), feed("Tea and cake. Yes."))
+    }
+
     @Test fun speechTextStripsActionsAndEmoji() {
         assertEquals("Hi there!", SpeechText.clean("*smiles* Hi there! 😊"))
         assertEquals(false, SpeechText.speakable(SpeechText.clean("*waves*")))
