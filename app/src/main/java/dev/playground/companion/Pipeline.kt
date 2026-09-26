@@ -107,6 +107,19 @@ class Pipeline(private val ctx: Context, private val store: ModelStore, private 
         return turn
     }
 
+    /** Runs the voice benchmark on the LLM thread so it never overlaps a turn. */
+    fun benchVoice(onPartial: (String) -> Unit, onDone: (String) -> Unit) {
+        stop()
+        llmExec.execute {
+            val report = dev.playground.companion.engine.VoiceBench.run(store.voiceDir, character.speakerId) { status, partial ->
+                ui.onStatus(status)
+                onPartial(partial)
+            }
+            ui.onStatus("Ready")
+            onDone(report)
+        }
+    }
+
     /** Stops generation and silences audio immediately. */
     fun stop() {
         currentTurn++

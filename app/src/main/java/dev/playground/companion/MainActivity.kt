@@ -89,14 +89,30 @@ class MainActivity : Activity(), Pipeline.Listener {
         row.addView(Button(this).apply { text = "Stop"; setOnClickListener { pipeline.stop() } })
         root.addView(row)
 
-        root.addView(Button(this).apply {
+        val tools = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        tools.addView(Button(this).apply {
+            text = "Bench voice"
+            setOnClickListener {
+                if (!send.isEnabled) return@setOnClickListener
+                send.isEnabled = false
+                pipeline.benchVoice(onPartial = { partial -> runOnUiThread { metrics.text = partial } }) { report ->
+                    runOnUiThread {
+                        reports.append(report).append("\n\n")
+                        metrics.text = report
+                        send.isEnabled = true
+                    }
+                }
+            }
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        tools.addView(Button(this).apply {
             text = "Copy report"
             setOnClickListener {
                 val text = pipeline.loadReport + "\n\n" + reports
                 (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("report", text))
                 Toast.makeText(this@MainActivity, "Report copied", Toast.LENGTH_SHORT).show()
             }
-        })
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        root.addView(tools)
         return root
     }
 

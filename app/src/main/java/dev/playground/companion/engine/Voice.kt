@@ -9,7 +9,7 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /** Kokoro TTS via sherpa-onnx. One instance serves all characters (voice = speaker id). */
-class Voice(modelDir: File, threads: Int) {
+class Voice(modelDir: File, threads: Int, provider: String = "cpu") {
     private val tts = OfflineTts(
         config = OfflineTtsConfig(
             model = OfflineTtsModelConfig(
@@ -20,7 +20,7 @@ class Voice(modelDir: File, threads: Int) {
                     dataDir = File(modelDir, "espeak-ng-data").path,
                 ),
                 numThreads = threads,
-                provider = "cpu",
+                provider = provider,
             ),
         ),
     )
