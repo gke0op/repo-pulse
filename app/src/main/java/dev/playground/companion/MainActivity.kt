@@ -21,7 +21,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import android.Manifest
+import android.app.AlertDialog
+import dev.playground.companion.engine.AsrEngine
 import dev.playground.companion.engine.Ears
+import dev.playground.companion.engine.Transcriber
 import dev.playground.companion.engine.VoiceEngine
 import kotlin.concurrent.thread
 
@@ -131,18 +134,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
         tools.addView(micButton, LinearLayout.LayoutParams(0, -2, 1f))
         tools.addView(Button(this).apply {
-            text = "Bench voice"
-            setOnClickListener {
-                if (!send.isEnabled) return@setOnClickListener
-                send.isEnabled = false
-                pipeline.benchVoice(onPartial = { partial -> runOnUiThread { metrics.text = partial } }) { report ->
-                    runOnUiThread {
-                        reports.append(report).append("\n\n")
-                        metrics.text = report
-                        send.isEnabled = true
-                    }
-                }
-            }
+            text = "Bench…"
+            setOnClickListener { showBenchMenu() }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         tools.addView(Button(this).apply {
             text = "Copy report"
@@ -217,6 +210,70 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
     }
 
+    private fun showBenchMenu() {
+        if (!send.isEnabled) return
+        val current = asrEngine()
+        val recognizers = AsrEngine.entries.map { e ->
+            val mark = if (e == current) "✓ " else ""
+            val size = if (store.asr2Ready(e)) "" else " (download ${e.approxMb} MB)"
+            "${mark}Recognizer: ${e.label}$size"
+        }
+        val items = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances") + recognizers
+        AlertDialog.Builder(this).setItems(items.toTypedArray()) { _, which ->
+            when (which) {
+                0 -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
+                1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+                else -> {
+                    val e = AsrEngine.entries[which - 2]
+                    prefs.edit().putString(PREF_ASR, e.name).apply()
+                    transcript.append("\n— recognizer: ${e.label} —\n")
+                    if (micOn) loadSecondPass()
+                }
+            }
+        }.show()
+    }
+
+    private fun runBench(start: (onPartial: (String) -> Unit, onDone: (String) -> Unit) -> Unit) {
+        send.isEnabled = false
+        start({ partial -> runOnUiThread { metrics.text = partial } }) { report ->
+            runOnUiThread {
+                reports.append(report).append("\n\n")
+                metrics.text = report
+                send.isEnabled = true
+            }
+        }
+    }
+
+    private fun asrEngine() = runCatching { AsrEngine.valueOf(prefs.getString(PREF_ASR, "")!!) }.getOrDefault(AsrEngine.PARAKEET)
+
+    /** Downloads (once) and loads the chosen second-pass recognizer in the background. */
+    private fun loadSecondPass() {
+        val e = asrEngine()
+        val ears = ears ?: return
+        if (ears.secondPass?.engine == e) return
+        thread(name = "asr2-load") {
+            try {
+                store.ensureAsr2(e) { what, done, total ->
+                    val pct = if (total > 0) " ${done * 100 / total}% (${done shr 20}/${total shr 20} MB)" else ""
+                    runOnUiThread { status.text = "$what$pct — mic works meanwhile" }
+                }
+                runOnUiThread { status.text = "Loading ${e.label}…" }
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                val t = Transcriber(e, store.asr2Dir(e))
+                val old = ears.secondPass
+                ears.secondPass = t
+                old?.release()
+                val ms = android.os.SystemClock.elapsedRealtime() - t0
+                runOnUiThread {
+                    status.text = "Listening…"
+                    metrics.append("\nMIC   2nd pass: ${e.label} (loaded in $ms ms)\n")
+                }
+            } catch (t: Throwable) {
+                runOnUiThread { status.text = "Recognizer failed: ${t.message} (streaming only)" }
+            }
+        }
+    }
+
     private fun toggleMic() {
         if (micOn) {
             micOn = false
@@ -246,6 +303,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                     micButton.isEnabled = true
                     status.text = "Listening…"
                     Thread { Thread.sleep(800); runOnUiThread { metrics.append("\nMIC   echo canceller: ${if (e.echoCancel) "on" else "unavailable"}\n") } }.start()
+                    loadSecondPass()
                 }
             } catch (t: Throwable) {
                 runOnUiThread {
@@ -296,9 +354,9 @@ class MainActivity : Activity(), Pipeline.Listener {
             if (micOn && pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
         }
 
-        override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int) {
+        override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
             if (!micOn || !send.isEnabled) return
-            val heard = pipeline.onUserUtterance(text, lastVoiceAt, voicedMs)
+            val heard = pipeline.onUserUtterance(text, lastVoiceAt, voicedMs, recognizeMs)
             runOnUiThread {
                 when (heard) {
                     is Pipeline.Heard.Ignored -> {
@@ -354,5 +412,6 @@ class MainActivity : Activity(), Pipeline.Listener {
     private companion object {
         const val PREF_VOICE = "voice_engine"
         const val REQ_MIC = 1
+        const val PREF_ASR = "asr_engine"
     }
 }

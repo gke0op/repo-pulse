@@ -1,5 +1,6 @@
 package dev.playground.companion
 
+import dev.playground.companion.engine.AsrEngine
 import dev.playground.companion.engine.VoiceEngine
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -42,6 +43,19 @@ class ModelStore(root: File) {
             if (!f.exists()) download("$ASR_BASE/$name", f) { d, t -> progress("Speech recognition ($name)", d, t) }
         }
         File(asrDir, ".ok").writeText("ok")
+    }
+
+    fun asr2Dir(e: AsrEngine) = File(dir, e.dirName)
+    fun asr2Ready(e: AsrEngine) = File(asr2Dir(e), ".ok").exists()
+
+    fun ensureAsr2(e: AsrEngine, progress: (String, Long, Long) -> Unit) {
+        if (asr2Ready(e)) return
+        val tar = File(dir, "${e.dirName}.tar.bz2")
+        download(e.url, tar) { d, t -> progress("Recognizer (${e.label})", d, t) }
+        progress("Unpacking ${e.label}", 0, 0)
+        untarBz2(tar, dir)
+        tar.delete()
+        File(asr2Dir(e), ".ok").writeText("ok")
     }
 
     fun ensureVoice(e: VoiceEngine, progress: (String, Long, Long) -> Unit) {

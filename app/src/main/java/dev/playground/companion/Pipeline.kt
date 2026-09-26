@@ -172,20 +172,21 @@ class Pipeline(
     }
 
     /** A finished utterance from the mic: starts a turn, or says why it was ignored. */
-    fun onUserUtterance(text: String, lastVoiceAt: Long, voicedMs: Int): Heard {
+    fun onUserUtterance(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long = 0): Heard {
         EchoGuard.rejectReason(text, voicedMs)?.let { return Heard.Ignored(it) }
         val recentlySpeaking = speaking || SystemClock.elapsedRealtime() - speakingEndedAt < ECHO_WINDOW_MS
         if (recentlySpeaking && EchoGuard.isEcho(text, replySoFar.toString())) return Heard.Ignored("her own echo")
-        return Heard.Turn(say(text, heardAt = lastVoiceAt))
+        return Heard.Turn(say(text, heardAt = lastVoiceAt, recognizeMs = recognizeMs))
     }
 
-    fun say(text: String, heardAt: Long = 0L): Int {
+    fun say(text: String, heardAt: Long = 0L, recognizeMs: Long = 0L): Int {
         stop()
         val turn = ++currentTurn
         activeTurn = turn
         replySoFar = StringBuilder()
         val trace = TurnTrace(turn, "${character.name}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
         trace.heardAt = heardAt
+        trace.recognizeMs = recognizeMs
         llmExec.execute {
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
@@ -216,6 +217,20 @@ class Pipeline(
         llmExec.execute {
             val engines = VoiceEngine.entries.filter(store::voiceReady).map { it to store.voiceDir(it) }
             val report = VoiceBench.run(engines, character.id) { status, partial ->
+                ui.onStatus(status)
+                onPartial(partial)
+            }
+            ui.onStatus("Ready")
+            onDone(report)
+        }
+    }
+
+    /** Runs the ASR bench on the LLM thread so it never overlaps a turn. */
+    fun benchAsr(utterances: List<dev.playground.companion.engine.AsrBench.Utterance>, onPartial: (String) -> Unit, onDone: (String) -> Unit) {
+        stop()
+        llmExec.execute {
+            val engines = dev.playground.companion.engine.AsrEngine.entries.filter(store::asr2Ready).map { it to store.asr2Dir(it) }
+            val report = dev.playground.companion.engine.AsrBench.run(utterances, engines) { status, partial ->
                 ui.onStatus(status)
                 onPartial(partial)
             }
@@ -283,6 +298,8 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
 
     /** When VAD last heard the user (voice turns only). */
     @Volatile var heardAt = 0L
+    /** Second-pass re-transcription time (voice turns with a second pass only). */
+    @Volatile var recognizeMs = 0L
     @Volatile var firstPieceAt = 0L
     @Volatile var firstChunkAt = 0L
     @Volatile var firstChunkText = ""
@@ -301,6 +318,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         appendLine("TURN #$turn ($who)${if (heardAt > 0) " [voice]" else ""}")
         if (heardAt > 0 && firstAudioAt > 0) {
             appendLine("  you stopped -> her voice : ${firstAudioAt - heardAt} ms   <- from your last sound (incl. end-of-turn wait)")
+            if (recognizeMs > 0) appendLine("  2nd-pass recognize      : $recognizeMs ms (included above)")
         }
         appendLine("  first audio : ${rel(firstAudioAt)}   <- time until you hear a voice")
         append("  first token : ${rel(firstPieceAt)}")
