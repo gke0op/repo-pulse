@@ -1,6 +1,7 @@
 package dev.playground.companion
 
 import dev.playground.companion.engine.AsrEngine
+import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.VoiceEngine
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -15,18 +16,23 @@ import java.net.URL
 class ModelStore(root: File) {
     private val dir = File(root, "models").apply { mkdirs() }
 
-    val llmFile = File(dir, "qwen2.5-1.5b-instruct-q4_k_m.gguf")
-
     fun voiceDir(e: VoiceEngine) = File(dir, e.dirName)
     fun voiceReady(e: VoiceEngine) = File(voiceDir(e), ".ok").exists()
 
-    /** The LLM plus any one voice are needed to start; other voices download on demand. */
-    fun ready() = llmFile.exists() && VoiceEngine.entries.any(::voiceReady)
+    fun llmFile(m: LlmModel) = File(dir, m.fileName)
+    fun llmReady(m: LlmModel) = llmFile(m).exists()
+
+    /** Any one brain plus any one voice are needed to start; the rest download on demand. */
+    fun ready() = LlmModel.entries.any(::llmReady) && VoiceEngine.entries.any(::voiceReady)
 
     /** progress(label, doneBytes, totalBytes) */
     fun ensure(progress: (String, Long, Long) -> Unit) {
-        if (!llmFile.exists()) download(LLM_URL, llmFile) { d, t -> progress("LLM (Qwen2.5 1.5B)", d, t) }
+        if (LlmModel.entries.none(::llmReady)) ensureLlm(DEFAULT_LLM, progress)
         if (VoiceEngine.entries.none(::voiceReady)) ensureVoice(DEFAULT_VOICE, progress)
+    }
+
+    fun ensureLlm(m: LlmModel, progress: (String, Long, Long) -> Unit) {
+        if (!llmReady(m)) download(m.url, llmFile(m)) { d, t -> progress("Brain (${m.label})", d, t) }
     }
 
     val asrDir = File(dir, "asr-zipformer-en-2023-06-26-int8")
@@ -120,6 +126,8 @@ class ModelStore(root: File) {
     }
 
     companion object {
+        val DEFAULT_LLM = LlmModel.QWEN25_1_5B // set from the persona eval
+
         /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
         val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3
         private const val VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
@@ -130,7 +138,5 @@ class ModelStore(root: File) {
             "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
             "tokens.txt",
         )
-        private const val LLM_URL =
-            "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
     }
 }

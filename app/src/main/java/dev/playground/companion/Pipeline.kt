@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
 import dev.playground.companion.engine.EchoGuard
+import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.RobotFilter
@@ -29,6 +30,7 @@ class Pipeline(
     private val store: ModelStore,
     private val ui: Listener,
     initialVoice: VoiceEngine,
+    initialLlm: LlmModel,
 ) {
     interface Listener {
         fun onStatus(text: String)
@@ -41,6 +43,7 @@ class Pipeline(
     @Volatile private lateinit var voice: Voice
     @Volatile private lateinit var audio: AudioOut
     @Volatile var voiceEngine: VoiceEngine = initialVoice; private set
+    @Volatile var llmModel: LlmModel = initialLlm; private set
     private var robot: RobotFilter? = null
 
     @Volatile private var currentTurn = 0
@@ -55,9 +58,10 @@ class Pipeline(
     fun load(onReady: () -> Unit) = llmExec.execute {
         val memStart = MemProbe.read(ctx)
         ui.onStatus("Loading LLM…")
+        if (!store.llmReady(llmModel)) llmModel = LlmModel.entries.first(store::llmReady)
         var t = SystemClock.elapsedRealtime()
         NativeLlm.init(ctx.applicationInfo.nativeLibraryDir)
-        check(NativeLlm.load(store.llmFile.path, N_CTX, LLM_THREADS)) { "LLM failed to load" }
+        check(NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS)) { "LLM failed to load" }
         val llmMs = SystemClock.elapsedRealtime() - t
 
         ui.onStatus("Loading voice…")
@@ -70,7 +74,7 @@ class Pipeline(
         applyCharacter(character)
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts ${voiceEngine.threads}")
+            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts ${voiceEngine.threads}")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
@@ -136,6 +140,30 @@ class Pipeline(
         }
     }
 
+    /** Downloads the brain if needed, then swaps it in (history restarts with the character prompt). */
+    fun switchLlm(m: LlmModel, onDone: (String?) -> Unit) {
+        stop()
+        llmExec.execute {
+            try {
+                store.ensureLlm(m) { what, done, total ->
+                    ui.onStatus(if (total > 0) "$what ${done * 100 / total}% (${done shr 20}/${total shr 20} MB)" else what)
+                }
+                ui.onStatus("Loading ${m.label}…")
+                NativeLlm.unload()
+                check(NativeLlm.load(store.llmFile(m).path, N_CTX, LLM_THREADS)) { "failed to load ${m.label}" }
+                llmModel = m
+                applyCharacter(character)
+                ui.onStatus("Ready")
+                onDone(null)
+            } catch (t: Throwable) {
+                // Fall back to whatever loads, so the app stays usable.
+                runCatching { NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS); applyCharacter(character) }
+                ui.onStatus("Brain switch failed: ${t.message}")
+                onDone(t.message ?: "failed")
+            }
+        }
+    }
+
     fun select(c: Character) {
         stop()
         character = c
@@ -184,7 +212,7 @@ class Pipeline(
         val turn = ++currentTurn
         activeTurn = turn
         replySoFar = StringBuilder()
-        val trace = TurnTrace(turn, "${character.name}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
+        val trace = TurnTrace(turn, "${character.name}, ${llmModel.label}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
         llmExec.execute {

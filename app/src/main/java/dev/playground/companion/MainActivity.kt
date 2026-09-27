@@ -24,6 +24,7 @@ import android.Manifest
 import android.app.AlertDialog
 import dev.playground.companion.engine.AsrEngine
 import dev.playground.companion.engine.Ears
+import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.Transcriber
 import dev.playground.companion.engine.VoiceEngine
 import kotlin.concurrent.thread
@@ -53,7 +54,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         super.onCreate(savedInstanceState)
         store = ModelStore(filesDir)
         val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
-        pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE)
+        val savedLlm = runCatching { LlmModel.valueOf(prefs.getString(PREF_LLM, "")!!) }.getOrNull()
+        pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE, savedLlm ?: ModelStore.DEFAULT_LLM)
         val root = buildUi()
         setContentView(root)
         // Target SDK 35 draws edge-to-edge: pad for the status/nav bars and the keyboard,
@@ -94,7 +96,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
         download = Button(this).apply {
-            text = "Download models (~1.25 GB, once)"
+            text = "Download models (once)"
             visibility = View.GONE
             setOnClickListener { runDownload() }
         }
@@ -218,11 +220,18 @@ class MainActivity : Activity(), Pipeline.Listener {
             val size = if (store.asr2Ready(e)) "" else " (download ${e.approxMb} MB)"
             "${mark}Recognizer: ${e.label}$size"
         }
-        val items = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances") + recognizers
+        val brains = LlmModel.entries.map { m ->
+            val mark = if (m == pipeline.llmModel) "✓ " else ""
+            val size = if (store.llmReady(m)) "" else " (download ${"%.1f".format(m.approxMb / 1024f)} GB)"
+            "${mark}Brain: ${m.label}$size"
+        }
+        val items = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances") + recognizers + brains
         AlertDialog.Builder(this).setItems(items.toTypedArray()) { _, which ->
-            when (which) {
-                0 -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
-                1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+            val firstBrain = 2 + recognizers.size
+            when {
+                which == 0 -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
+                which == 1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+                which >= firstBrain -> switchBrain(LlmModel.entries[which - firstBrain])
                 else -> {
                     val e = AsrEngine.entries[which - 2]
                     prefs.edit().putString(PREF_ASR, e.name).apply()
@@ -231,6 +240,19 @@ class MainActivity : Activity(), Pipeline.Listener {
                 }
             }
         }.show()
+    }
+
+    private fun switchBrain(m: LlmModel) {
+        if (m == pipeline.llmModel) return
+        send.isEnabled = false
+        val note = if (store.llmReady(m)) "" else " (downloading ~${"%.1f".format(m.approxMb / 1024f)} GB)"
+        transcript.append("\n— switching brain to ${m.label}$note —\n")
+        pipeline.switchLlm(m) { err ->
+            runOnUiThread {
+                if (err == null) prefs.edit().putString(PREF_LLM, m.name).apply()
+                send.isEnabled = true
+            }
+        }
     }
 
     private fun runBench(start: (onPartial: (String) -> Unit, onDone: (String) -> Unit) -> Unit) {
@@ -413,5 +435,6 @@ class MainActivity : Activity(), Pipeline.Listener {
         const val PREF_VOICE = "voice_engine"
         const val REQ_MIC = 1
         const val PREF_ASR = "asr_engine"
+        const val PREF_LLM = "llm_model"
     }
 }
