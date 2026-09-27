@@ -40,13 +40,15 @@ Java_dev_playground_companion_engine_NativeLlm_setSystem(JNIEnv * env, jobject, 
 }
 
 // Streams UTF-8 pieces to sink.onPiece(byte[]): Boolean. Returns
-// [promptTokens, prefillMs, genTokens, genMs, rebuilt, cancelled].
+// [promptTokens, prefillMs, genTokens, genMs, rebuilt, cancelled, shiftReused].
 JNIEXPORT jdoubleArray JNICALL
 Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstring user, jint max_tokens, jstring prefix, jobject sink) {
     jclass    cls       = env->GetObjectClass(sink);
     jmethodID on_piece  = env->GetMethodID(cls, "onPiece", "([B)Z");
 
     LlmTurnStats st;
+    // A C++ exception (e.g. a chat template raising) must not cross JNI: that aborts the app.
+    try {
     g_engine.reply(to_std(env, user), max_tokens, [&](const std::string & piece) {
         // Bytes, not NewStringUTF: JNI's modified UTF-8 mangles emoji and other 4-byte chars.
         jbyteArray arr = env->NewByteArray((jsize) piece.size());
@@ -56,11 +58,14 @@ Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstr
         if (env->ExceptionCheck()) { env->ExceptionClear(); return false; }
         return keep == JNI_TRUE;
     }, st, to_std(env, prefix));
+    } catch (const std::exception & e) {
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "reply failed: %s", e.what());
+    }
 
-    const jdouble vals[6] = { (double) st.prompt_tokens, st.prefill_ms, (double) st.gen_tokens, st.gen_ms,
-                              st.rebuilt ? 1.0 : 0.0, st.cancelled ? 1.0 : 0.0 };
-    jdoubleArray out = env->NewDoubleArray(6);
-    env->SetDoubleArrayRegion(out, 0, 6, vals);
+    const jdouble vals[7] = { (double) st.prompt_tokens, st.prefill_ms, (double) st.gen_tokens, st.gen_ms,
+                              st.rebuilt ? 1.0 : 0.0, st.cancelled ? 1.0 : 0.0, (double) st.shift_reused };
+    jdoubleArray out = env->NewDoubleArray(7);
+    env->SetDoubleArrayRegion(out, 0, 7, vals);
     return out;
 }
 

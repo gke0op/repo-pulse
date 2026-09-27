@@ -18,6 +18,7 @@ struct LlmTurnStats {
     int    gen_tokens    = 0;   // tokens generated
     double gen_ms        = 0;   // time spent generating
     bool   rebuilt       = false; // context overflowed and history was trimmed
+    int    shift_reused  = 0;     // on a trim: cached tokens kept by shifting instead of re-decoding
     bool   cancelled     = false;
 };
 
@@ -54,6 +55,7 @@ private:
     std::string render_text(const std::vector<common_chat_msg> & msgs, bool add_generation_prompt) const;
     std::vector<llama_token> render(bool add_generation_prompt) const;
     bool sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & stats);
+    size_t shift_out_dropped(const std::vector<llama_token> & prompt);
     bool decode_from(const std::vector<llama_token> & tokens, size_t start);
 
     llama_model *             model_   = nullptr;

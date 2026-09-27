@@ -123,6 +123,29 @@ bool LlmEngine::sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & 
     return ok;
 }
 
+// After a history trim the cache still holds the dropped exchanges between the system prefix
+// and the kept history. Cut them out and slide the kept part down instead of re-decoding it all
+// (measured on the phone: 849 tokens, 39.7 s). Needs a shiftable cache; Gemma's SWA cache is
+// (swa_full is on by default). Returns how many cached tokens were kept by the shift.
+size_t LlmEngine::shift_out_dropped(const std::vector<llama_token> & prompt) {
+    llama_memory_t mem = llama_get_memory(ctx_);
+    if (!llama_memory_can_shift(mem)) return 0;
+    size_t a = 0;
+    while (a < kv_tokens_.size() && a < prompt.size() && kv_tokens_[a] == prompt[a]) ++a;
+    // Where does prompt[a..] (the kept history) continue inside the cache?
+    size_t best_b = 0, best_len = 0;
+    for (size_t b = a + 1; b < kv_tokens_.size(); ++b) {
+        size_t n = 0;
+        while (b + n < kv_tokens_.size() && a + n < prompt.size() && kv_tokens_[b + n] == prompt[a + n]) ++n;
+        if (n > best_len) { best_len = n; best_b = b; }
+    }
+    if (best_len < 32) return 0; // short runs are template boilerplate, not the kept history
+    if (!llama_memory_seq_rm(mem, 0, (llama_pos) a, (llama_pos) best_b)) return 0;
+    llama_memory_seq_add(mem, 0, (llama_pos) best_b, -1, -(llama_pos) (best_b - a));
+    kv_tokens_.erase(kv_tokens_.begin() + a, kv_tokens_.begin() + best_b);
+    return best_len;
+}
+
 bool LlmEngine::decode_from(const std::vector<llama_token> & tokens, size_t start) {
     for (size_t i = start; i < tokens.size(); i += n_batch_) {
         const size_t n = std::min((size_t) n_batch_, tokens.size() - i);
@@ -144,13 +167,19 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
     cancel_.store(false);
     if (!ctx_ || msgs_.empty()) return "";
 
-    common_chat_msg user;
-    user.role    = "user";
-    user.content = user_text;
-    msgs_.push_back(user);
+    // A turn that got no reply leaves its user message last. Fold the new text into it: roles
+    // must alternate (Gemma's template throws otherwise) and the brain hears one whole message.
+    if (msgs_.back().role == "user") {
+        msgs_.back().content += " " + user_text;
+    } else {
+        common_chat_msg user;
+        user.role    = "user";
+        user.content = user_text;
+        msgs_.push_back(user);
+    }
 
     // On overflow, trim the oldest exchanges (never the system prompt) down to 3/4 of the
-    // context, so the full re-prefill this costs happens once per several turns, not every turn.
+    // context; shift_out_dropped then reuses the kept history instead of re-decoding it.
     auto prompt = render(true);
     const bool overflow = (int) prompt.size() + max_tokens > n_ctx_;
     while (overflow && (int) prompt.size() + max_tokens > n_ctx_ * 3 / 4 && msgs_.size() > 2) {
@@ -165,6 +194,7 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
         prompt.insert(prompt.end(), pre.begin(), pre.end());
     }
     if ((int) prompt.size() >= n_ctx_) return "";
+    if (stats.rebuilt) stats.shift_reused = (int) shift_out_dropped(prompt);
     if (!sync_kv(prompt, stats)) return "";
 
     const llama_vocab * vocab = llama_model_get_vocab(model_);
@@ -197,6 +227,7 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
         }
     }
     stats.gen_ms = now_ms() - t0;
+    if (stats.gen_tokens == 0) return reply_text; // nothing was said: the next message joins this one
 
     common_chat_msg asst;
     asst.role    = "assistant";

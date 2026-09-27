@@ -1,6 +1,8 @@
 package dev.playground.companion
 
 import android.content.Context
+import android.os.Build
+import android.os.PowerManager
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
 import dev.playground.companion.engine.EchoGuard
@@ -349,6 +351,7 @@ class Pipeline(
                     if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
                     job.trace.doneAt = now()
                     job.trace.memAfter = MemProbe.read(ctx)
+                    job.trace.heat = heat()
                     ui.onTurnDone(job.turn, job.trace.report())
                 }
             }
@@ -357,11 +360,19 @@ class Pipeline(
 
     private fun now() = SystemClock.elapsedRealtime()
 
+    private val power = ctx.getSystemService(PowerManager::class.java)
+
+    /** Thermal status (0 none .. 6 shutdown) and headroom (1.0 = throttling starts), to explain slow turns. */
+    private fun heat(): String {
+        val headroom = if (Build.VERSION.SDK_INT >= 30) power.getThermalHeadroom(0) else Float.NaN
+        return "status ${power.currentThermalStatus}, headroom ${"%.2f".format(headroom)}"
+    }
+
     companion object {
         const val N_CTX = 2048
         const val LLM_THREADS = 4
-        /** Prompt processing is compute-bound; phone measured ~35-40 tok/s on 4 threads with Gemma 4B. */
-        const val LLM_BATCH_THREADS = 6
+        /** llama-bench on S24 Ultra, Gemma 3 4B pp256: 4 threads 51.4 tok/s, 6 threads 44.8, 8 threads 50.5. */
+        const val LLM_BATCH_THREADS = 4
         const val MAX_REPLY_TOKENS = 400 // 160 cut a requested song mid-outro; Stop still cuts long replies
         /** After she stops, mic text matching her words is still treated as echo for this long. */
         const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
@@ -388,6 +399,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var llm: NativeLlm.Stats? = null
     @Volatile var memBefore: MemProbe.Snapshot? = null
     @Volatile var memAfter: MemProbe.Snapshot? = null
+    @Volatile var heat = ""
     val chunks: MutableList<Chunk> = java.util.Collections.synchronizedList(mutableListOf())
     val emotions: MutableList<Emotion> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -407,7 +419,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         appendLine("  first chunk : ${rel(firstChunkAt)}  \"${firstChunkText.take(40)}\"")
         if (l != null) {
             appendLine("  LLM         : ${l.genTokens} tok @ ${"%.1f".format(l.tokPerSec)} tok/s, done ${rel(llmDoneAt)}" +
-                (if (l.rebuilt) " [history trimmed]" else "") + (if (l.cancelled) " [cancelled]" else ""))
+                (if (l.rebuilt) " [history trimmed, shift kept ${l.shiftReused} tok]" else "") + (if (l.cancelled) " [cancelled]" else ""))
         }
         val synth = chunks.sumOf { it.synthMs }
         val audio = chunks.sumOf { it.audioMs }
@@ -419,5 +431,6 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         if (emotions.isNotEmpty()) appendLine("  feeling     : ${emotions.joinToString(" -> ") { it.tag }}")
         val a = memAfter
         if (a != null) append("  RAM         : rss ${a.rssMb} MB, peak ${a.peakRssMb} MB | avail ${a.availMb}/${a.totalMb} MB${if (a.lowMemory) " LOW" else ""}")
+        if (heat.isNotEmpty()) append("\n  heat        : $heat")
     }
 }

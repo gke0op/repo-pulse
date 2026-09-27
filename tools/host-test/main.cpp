@@ -44,7 +44,30 @@ int main(int argc, char ** argv) {
     for (int i = 0; i < 16; ++i) {
         LlmTurnStats s2;
         auto r = small.reply("Say a random word and nothing else.", 64, [](const std::string &) { return true; }, s2);
-        std::printf("small ctx turn %d: '%s' rebuilt=%d prefill_tok=%d\n", i, r.c_str(), s2.rebuilt, s2.prompt_tokens);
+        std::printf("small ctx turn %d: '%s' rebuilt=%d shift_reused=%d prefill_tok=%d\n", i, r.c_str(), s2.rebuilt, s2.shift_reused, s2.prompt_tokens);
+    }
+
+    // Realistic trims: persona chat with the "[" prefill in a small context, so the oldest
+    // exchanges are shifted out every few turns. A fact told after the early trims must survive.
+    eng.unload();
+    small.unload();
+    LlmEngine chat;
+    if (!chat.load(argv[1], 448, 4)) { std::fprintf(stderr, "chat load failed\n"); return 1; }
+    chat.set_system("You are Mira, a warm, playful companion. Open every reply with one feeling tag like [happy]. "
+                    "Reply in one or two short spoken sentences. Only bring up what the user actually said.");
+    const char * lines[] = {
+        "Hi Mira, it's late and I can't sleep.", "I've been building an app all day.", "It has three characters.",
+        "One of them is a machine with a porcelain mask.", "The mask is mended with gold.", "Do you like music?",
+        "I listen to a lot of jazz.", "My cat is called Pixel.",
+        "I made tea, chamomile.", "Do you like rain?", "Tell me about your day.", "I think I'll sleep soon.",
+        "What was my cat's name?", "Do you remember what tea I made?", "What music do I listen to?",
+        "Okay, one more thing: my sister is called Lale.", "Say goodnight to Pixel for me.", "Who is Lale?",
+    };
+    for (const char * t : lines) {
+        LlmTurnStats s3;
+        auto r = chat.reply(t, 96, [](const std::string &) { return true; }, s3, "[");
+        std::printf("chat: prefill %3d tok %6.0f ms%s | %s -> %s\n", s3.prompt_tokens, s3.prefill_ms,
+                    s3.rebuilt ? (" | trimmed, shift kept " + std::to_string(s3.shift_reused)).c_str() : "", t, r.c_str());
     }
     llama_backend_free();
     return 0;

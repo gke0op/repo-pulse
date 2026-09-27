@@ -11,6 +11,8 @@ object NativeLlm {
         val genMs = v[3]
         val rebuilt = v[4] != 0.0
         val cancelled = v[5] != 0.0
+        /** On a history trim: cached tokens kept by shifting the KV cache instead of re-decoding. */
+        val shiftReused = v[6].toInt()
         val tokPerSec get() = if (genMs > 0) genTokens * 1000.0 / genMs else 0.0
     }
 
