@@ -51,10 +51,12 @@ class MainActivity : Activity(), Pipeline.Listener {
     private var liveTurn = -1
     private val reports = StringBuilder()
     private val ignoredLog = StringBuilder()
+    private lateinit var log: SessionLog
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = ModelStore(applicationContext)
+        log = SessionLog(applicationContext)
         val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
         val savedLlm = runCatching { LlmModel.valueOf(prefs.getString(PREF_LLM, "")!!) }.getOrNull()
         pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE, savedLlm ?: ModelStore.DEFAULT_LLM)
@@ -189,6 +191,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         pipeline.load {
             runOnUiThread {
                 metrics.text = pipeline.loadReport + "\n"
+                log.report(pipeline.loadReport)
+                log.event("talking to ${pipeline.character.name}, brain ${pipeline.llmModel.label}, voice ${pipeline.voiceEngine.label}")
                 send.isEnabled = true
                 charButtons.forEach { it.isEnabled = true }
                 voiceButton.isEnabled = true
@@ -209,6 +213,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         send.isEnabled = false
         voiceButton.isEnabled = false
         transcript.append("\n— switching voice to ${next.label}$note —\n")
+        log.event("voice -> ${next.label}")
         pipeline.switchVoice(next) { err ->
             runOnUiThread {
                 if (err == null) prefs.edit().putString(PREF_VOICE, next.name).apply()
@@ -233,7 +238,7 @@ class MainActivity : Activity(), Pipeline.Listener {
             val size = if (store.llmReady(m)) "" else " (download ${"%.1f".format(m.approxMb / 1024f)} GB)"
             "${mark}Brain: ${m.label}$size"
         }
-        val benches = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances")
+        val benches = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances", "Share this session's log")
         val items = brains + recognizers + benches
         AlertDialog.Builder(this).setTitle("Models").setItems(items.toTypedArray()) { _, which ->
             val firstRecognizer = brains.size
@@ -247,7 +252,8 @@ class MainActivity : Activity(), Pipeline.Listener {
                     if (micOn) loadSecondPass()
                 }
                 which == firstBench -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
-                else -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+                which == firstBench + 1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+                else -> shareLog()
             }
         }.show()
     }
@@ -257,12 +263,27 @@ class MainActivity : Activity(), Pipeline.Listener {
         send.isEnabled = false
         val note = if (store.llmReady(m)) "" else " (downloading ~${"%.1f".format(m.approxMb / 1024f)} GB)"
         transcript.append("\n— switching brain to ${m.label}$note —\n")
+        log.event("brain -> ${m.label}")
         pipeline.switchLlm(m) { err ->
             runOnUiThread {
                 if (err == null) prefs.edit().putString(PREF_LLM, m.name).apply()
                 status.text = "Ready · brain: ${pipeline.llmModel.label}"
                 send.isEnabled = true
             }
+        }
+    }
+
+    /** Sends the session log through the Android share sheet (Drive, messengers, email…). */
+    private fun shareLog() = thread(name = "share-log") {
+        var text = log.readAll()
+        if (text.length > MAX_SHARE_CHARS) text = "…(start trimmed)…\n" + text.takeLast(MAX_SHARE_CHARS)
+        runOnUiThread {
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_SUBJECT, log.file.name)
+                putExtra(android.content.Intent.EXTRA_TEXT, text)
+            }
+            startActivity(android.content.Intent.createChooser(send, "Share session log"))
         }
     }
 
@@ -403,6 +424,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                     is Pipeline.Heard.Ignored -> {
                         status.text = "(ignored \"$text\": ${heard.reason})"
                         ignoredLog.append("IGNORED \"$text\" (${heard.reason}, voiced ${voicedMs} ms)\n")
+                        log.event("mic ignored \"$text\" (${heard.reason})")
                     }
                     is Pipeline.Heard.Turn -> {
                         transcript.append("\nYou 🎤: $text\n${pipeline.character.name}: ")
@@ -445,6 +467,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         avatar.setState("idle")
         avatar.setEmotion("calm")
         transcript.append("\n— now talking to ${c.name} —\n")
+        log.event("now talking to ${c.name}")
         highlight()
     }
 
@@ -480,7 +503,11 @@ class MainActivity : Activity(), Pipeline.Listener {
         avatar.setState("listening")
     }
 
+    override fun onReplyComplete(trace: TurnTrace) =
+        log.turn(trace.character, trace.userText, trace.replyText, trace.emotions.joinToString(" -> ") { it.tag })
+
     override fun onTurnDone(turn: Int, report: String) = runOnUiThread {
+        log.report(report)
         // She finished: throw away her echo tail so it can't become a fake user utterance.
         ears?.discardUtterance()
         avatar.setState("idle")
@@ -494,6 +521,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         const val PREF_ASR = "asr_engine"
         const val PREF_LLM = "llm_model"
         const val LISTEN_TIMEOUT_MS = 1500L
+        /** Share-sheet text travels through Binder (~1 MB limit); keep well under it. */
+        const val MAX_SHARE_CHARS = 300_000
         // Rough output latency so the mouth moves with the sound, not before it (tune by eye).
         const val MEDIA_AUDIO_DELAY_MS = 90
         const val CALL_AUDIO_DELAY_MS = 140

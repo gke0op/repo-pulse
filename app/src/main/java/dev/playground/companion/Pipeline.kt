@@ -49,6 +49,8 @@ class Pipeline(
         fun onInterrupted() {}
         /** The character's feeling, from the brain's emotion tags; timed to the speech it belongs to. */
         fun onEmotion(emotion: Emotion) {}
+        /** The full reply text is known (even if playback is later cut off). */
+        fun onReplyComplete(trace: TurnTrace) {}
     }
 
     private val llmExec = Executors.newSingleThreadExecutor { Thread(it, "llm") }
@@ -226,6 +228,8 @@ class Pipeline(
         activeTurn = turn
         replySoFar = StringBuilder()
         val trace = TurnTrace(turn, "${character.name}, ${llmModel.label}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
+        trace.character = character.name
+        trace.userText = text
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
         ui.onThinking()
@@ -265,6 +269,8 @@ class Pipeline(
             chunker.flush()?.let(::emit)
             trace.llm = stats
             trace.llmDoneAt = now()
+            trace.replyText = replySoFar.toString().trim()
+            ui.onReplyComplete(trace)
             ttsQueue.put(TtsJob.End(turn, trace))
         }
         return turn
@@ -364,6 +370,9 @@ class Pipeline(
 }
 
 class TurnTrace(val turn: Int, val who: String, val t0: Long) {
+    @Volatile var character = ""
+    @Volatile var userText = ""
+    @Volatile var replyText = ""
     class Chunk(val chars: Int, val synthMs: Long, val audioMs: Long)
 
     /** When VAD last heard the user (voice turns only). */
