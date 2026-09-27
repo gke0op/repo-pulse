@@ -9,11 +9,14 @@ import fs from 'node:fs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Served over http like the app does (fetch() can't read file:// URLs, and VRM models are fetched).
 const assets = path.resolve(here, '../../app/src/main/assets');
+const humans = path.resolve(here, '../../models/avatar');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.vrm': 'model/gltf-binary' };
 const server = http.createServer((req, res) => {
-  const f = path.join(assets, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  const u = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  // The app serves the downloaded humans from its storage; here they come from models/avatar.
+  const f = u.startsWith('/avatar/models/') ? path.join(humans, u.slice('/avatar/models/'.length)) : path.join(assets, u);
   if (req.url === '/favicon.ico') { res.writeHead(204).end(); return; }
-  if (!f.startsWith(assets) || !fs.existsSync(f)) { res.writeHead(404).end(); return; }
+  if (!(f.startsWith(assets) || f.startsWith(humans)) || !fs.existsSync(f)) { res.writeHead(404).end(); return; }
   res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
   fs.createReadStream(f).pipe(res);
 }).listen(0);
@@ -27,7 +30,7 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 400, height: 460 }, deviceScaleFactor: 2 });
 const errors = [];
-page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.text()); });
+page.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !m.text().includes('GPU stall due to ReadPixels')) errors.push(m.text()); }); // that one is the screenshot's own readback (macOS)
 page.on('pageerror', e => errors.push(String(e)));
 
 const shots = [
