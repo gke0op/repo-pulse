@@ -136,8 +136,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
         tools.addView(micButton, LinearLayout.LayoutParams(0, -2, 1f))
         tools.addView(Button(this).apply {
-            text = "Bench…"
-            setOnClickListener { showBenchMenu() }
+            text = "Models…"
+            setOnClickListener { showModelsMenu() }
         }, LinearLayout.LayoutParams(0, -2, 1f))
         tools.addView(Button(this).apply {
             text = "Copy report"
@@ -189,6 +189,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                 voiceButton.isEnabled = true
                 voiceButton.text = "Voice: ${pipeline.voiceEngine.label}"
                 micButton.isEnabled = true
+                status.text = "Ready · brain: ${pipeline.llmModel.label} (change in Models…)"
                 highlight()
             }
         }
@@ -212,7 +213,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
     }
 
-    private fun showBenchMenu() {
+    /** Brains first (the thing people come here for), then recognizers, then benchmarks. */
+    private fun showModelsMenu() {
         if (!send.isEnabled) return
         val current = asrEngine()
         val recognizers = AsrEngine.entries.map { e ->
@@ -225,19 +227,21 @@ class MainActivity : Activity(), Pipeline.Listener {
             val size = if (store.llmReady(m)) "" else " (download ${"%.1f".format(m.approxMb / 1024f)} GB)"
             "${mark}Brain: ${m.label}$size"
         }
-        val items = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances") + recognizers + brains
-        AlertDialog.Builder(this).setItems(items.toTypedArray()) { _, which ->
-            val firstBrain = 2 + recognizers.size
+        val benches = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances")
+        val items = brains + recognizers + benches
+        AlertDialog.Builder(this).setTitle("Models").setItems(items.toTypedArray()) { _, which ->
+            val firstRecognizer = brains.size
+            val firstBench = firstRecognizer + recognizers.size
             when {
-                which == 0 -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
-                which == 1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
-                which >= firstBrain -> switchBrain(LlmModel.entries[which - firstBrain])
-                else -> {
-                    val e = AsrEngine.entries[which - 2]
+                which < firstRecognizer -> switchBrain(LlmModel.entries[which])
+                which < firstBench -> {
+                    val e = AsrEngine.entries[which - firstRecognizer]
                     prefs.edit().putString(PREF_ASR, e.name).apply()
                     transcript.append("\n— recognizer: ${e.label} —\n")
                     if (micOn) loadSecondPass()
                 }
+                which == firstBench -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
+                else -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
             }
         }.show()
     }
@@ -250,6 +254,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         pipeline.switchLlm(m) { err ->
             runOnUiThread {
                 if (err == null) prefs.edit().putString(PREF_LLM, m.name).apply()
+                status.text = "Ready · brain: ${pipeline.llmModel.label}"
                 send.isEnabled = true
             }
         }

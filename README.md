@@ -44,5 +44,5 @@ prefix reuse, cancellation, and history trimming when the context fills.
 1. Install, open, tap **Download models** (~1.25 GB, once; resumable).
 2. Pick a character, type, send, or tap **Mic** (downloads ~73 MB of speech models once) and talk.
 3. **Stop** cuts generation and audio; talking over her does the same.
-4. **Bench…** times voices, re-runs recognizers on your last 5 utterances, or picks the recognizer;
+4. **Models…** switches the brain or recognizer, and benchmarks voices and recognizers (on your last 5 utterances);
    **Copy report** copies all traces.
