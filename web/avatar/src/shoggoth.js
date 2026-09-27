@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { NOISE_GLSL, SKIN_GLSL } from './noise.glsl.js';
 
 const BODY_R = 1.15;
+const FACE_DIR = new THREE.Vector3(0, 0.15, 1).normalize();
+const FACE_D = 0.07;
 
 // Must match lobes() in noise.glsl.js.
 const BUMPS = [[0.707, 0.707, 0.0], [-0.894, 0.447, 0.0], [0.928, -0.371, 0.0],
@@ -44,7 +46,7 @@ function eyeLayout() {
     const r = Math.sqrt(1 - u * u);
     const d = new THREE.Vector3(r * Math.cos(a), u, r * Math.sin(a));
     const underMask = d.z > 0.5 && Math.abs(d.x) < 0.4 && d.y > -0.42 && d.y < 0.55;
-    if (underMask || d.y < -0.5 || d.z < 0.2) continue;
+    if (underMask || d.dot(FACE_DIR) > 0.8 || d.y < -0.5 || d.z < 0.2) continue;
     const nearMask = d.z > 0.3 && Math.abs(d.x) < 0.7 && d.y > -0.5 && d.y < 0.75;
     if (!nearMask && rand() < 0.45) continue;                         // crowd toward the face
     if (eyes.some(e => e.dir.angleTo(d) < 0.26)) continue;
@@ -60,11 +62,15 @@ uniform float uTime, uRipple, uLean, uBreath, uSpeech;
 varying vec3 vWorldPos, vNormalW, vDir;
 
 // detail = 0 gives the big shape only; normals use that so the wet highlight stays clean.
+const vec3 FACE_DIR = vec3(0.0, 0.1483, 0.9889);      // normalize(0, 0.15, 1); matches FACE_DIR in JS
+const float FACE_D = 0.07;
+float faceWeight(vec3 n) { return smoothstep(0.55, 0.88, dot(n, FACE_DIR)); }
+
 vec3 surf(vec3 n, float detail) {
   float r = ${BODY_R.toFixed(3)} * uBreath * (1.0 + 0.03 * uSpeech);
   float d = lobes(n, uTime, uRipple) + detail * 0.022 * fbm(n * 2.2 + vec3(0.0, uTime * 0.12, 0.0));
+  d = mix(d, FACE_D, faceWeight(n));                  // calm, stable socket where the mask sits
   vec3 p = n * r * (1.0 + d);
-  p.z += uLean * smoothstep(-0.2, 1.0, n.y) * 0.22;   // lean toward you when listening
   return p;
 }
 
@@ -95,6 +101,8 @@ varying vec3 vWorldPos, vNormalW, vDir;
 void main() {
   vec3 V = normalize(cameraPosition - vWorldPos);
   vec3 col = skin(normalize(vNormalW), V, vDir * 1.4, uTime, uPulse);
+  float f = dot(normalize(vDir), vec3(0.0, 0.1483, 0.9889));
+  col *= 1.0 - 0.8 * smoothstep(0.82, 0.88, f);      // contact shadow right at the mask's rim
   gl_FragColor = vec4(pow(col, vec3(1.0 / 2.2)), 1.0);
 }`;
 
@@ -283,13 +291,17 @@ export class Shoggoth {
 
   /** Surface point in group space for unit direction n (mirrors BODY_VERT's large-scale shape). */
   surfacePoint(n, s, out) {
-    const r = BODY_R * s.breath * (1 + 0.03 * s.speech) * (1 + lobes(n, s.t, s.ripple));
+    const w = THREE.MathUtils.smoothstep(n.dot(FACE_DIR), 0.55, 0.88);   // mirrors faceWeight()
+    const d = THREE.MathUtils.lerp(lobes(n, s.t, s.ripple), FACE_D, w);
+    const r = BODY_R * s.breath * (1 + 0.03 * s.speech) * (1 + d);
     out.copy(n).multiplyScalar(r);
-    out.z += s.lean * THREE.MathUtils.smoothstep(n.y, -0.2, 1.0) * 0.22;
     return out;
   }
 
   update(s, dt) {
+    // Lean in when listening: tip the whole creature toward you, so mask and flesh move as one.
+    this.group.rotation.x = s.lean * 0.14;
+    this.group.position.z = s.lean * 0.12;
     const u = this.u;
     u.uTime.value = s.t;
     u.uRipple.value = s.ripple;
@@ -330,12 +342,14 @@ export class Shoggoth {
     }
 
     // The mask floats in front of the mass and turns partly toward what it attends to.
-    const front = this.surfacePoint(this._front || (this._front = new THREE.Vector3(0, 0.15, 1).normalize()), s, new THREE.Vector3());
+    // Seated on the calm face socket, just proud of the surface.
+    const front = this.surfacePoint(FACE_DIR, s, new THREE.Vector3()).addScaledVector(FACE_DIR, 0.05);
     // Float clear of the surface: the bulges can swell ~0.3 past the mean radius.
-    this.mask.position.set(front.x, front.y + Math.sin(s.t * 1.3) * 0.02, front.z + 0.36);
+    this.mask.position.copy(front);
     const look = s.focus;
-    this.mask.rotation.y = THREE.MathUtils.lerp(this.mask.rotation.y, Math.atan2(look.x, 6) * 0.35, 0.08);
-    this.mask.rotation.x = THREE.MathUtils.lerp(this.mask.rotation.x, -Math.atan2(look.y - 0.25, 6) * 0.35 + s.nod, 0.08);
+    // Small turns only: a seated mask that swivels far would open gaps at its edges.
+    this.mask.rotation.y = THREE.MathUtils.lerp(this.mask.rotation.y, Math.atan2(look.x, 6) * 0.12, 0.08);
+    this.mask.rotation.x = THREE.MathUtils.lerp(this.mask.rotation.x, -Math.atan2(look.y - 0.25, 6) * 0.12 - 0.15 + s.nod * 0.5, 0.08);
     this.mask.rotation.z = Math.sin(s.t * 0.5) * 0.03 + s.tilt;
     this.maskU.uMouth.value = s.mouth;
     this.maskU.uOpen.value = s.maskEyes;
