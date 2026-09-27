@@ -50,6 +50,14 @@ class MainActivity : Activity(), Pipeline.Listener {
     private val charButtons = mutableListOf<Button>()
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var liveTurn = -1
+    /** Reply text of turns not shown yet (an early start before its commit), by turn id. UI thread only. */
+    private val pendingText = HashMap<Int, StringBuilder>()
+
+    private fun goLive(turn: Int) {
+        liveTurn = turn
+        pendingText.remove(turn)?.let(transcript::append)
+        pendingText.keys.removeAll { it < turn }
+    }
     private val reports = StringBuilder()
     private val ignoredLog = StringBuilder()
     private lateinit var log: SessionLog
@@ -492,6 +500,11 @@ class MainActivity : Activity(), Pipeline.Listener {
             }
         }
 
+        override fun onShortPause(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
+            if (!micOn || !send.isEnabled) return
+            pipeline.onUserPause(text, lastVoiceAt, voicedMs, recognizeMs)
+        }
+
         override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
             if (!micOn || !send.isEnabled) return
             val heard = pipeline.onUserUtterance(text, lastVoiceAt, voicedMs, recognizeMs)
@@ -504,7 +517,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                     }
                     is Pipeline.Heard.Turn -> {
                         transcript.append("\nYou 🎤: $text\n${pipeline.character.name}: ")
-                        liveTurn = heard.id
+                        goLive(heard.id)
                     }
                 }
             }
@@ -556,13 +569,14 @@ class MainActivity : Activity(), Pipeline.Listener {
         if (text.isEmpty() || !send.isEnabled) return
         input.setText("")
         transcript.append("\nYou: $text\n${pipeline.character.name}: ")
-        liveTurn = pipeline.say(text)
+        goLive(pipeline.say(text))
     }
 
     override fun onStatus(text: String) = runOnUiThread { status.text = text }
 
     override fun onReplyText(turn: Int, piece: String) = runOnUiThread {
         if (turn == liveTurn) transcript.append(piece)
+        else if (turn > liveTurn) pendingText.getOrPut(turn) { StringBuilder() }.append(piece)
     }
 
     override fun onThinking() = runOnUiThread { avatar.setState("thinking") }

@@ -18,6 +18,7 @@ import dev.playground.companion.engine.SpeechText
 import dev.playground.companion.engine.Voice
 import dev.playground.companion.engine.VoiceBench
 import dev.playground.companion.engine.VoiceEngine
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -203,6 +204,8 @@ class Pipeline(
      * echo are enough to cut her off; the rest of the utterance keeps flowing into ASR.
      */
     fun onUserSpeech(partial: String): Boolean {
+        // You kept talking after a short pause: drop the early start quietly (nothing was heard).
+        if (heldTurn != 0) { stop(); return false }
         if (!speaking) return false
         // 3 words, not 2: EchoGuard can only judge 3+ words, and 2-word echoes of her own
         // voice were cutting her off (v0.6 on S24 Ultra).
@@ -219,12 +222,68 @@ class Pipeline(
     /** A finished utterance from the mic: starts a turn, or says why it was ignored. */
     fun onUserUtterance(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long = 0): Heard {
         EchoGuard.rejectReason(text, voicedMs)?.let { return Heard.Ignored(it) }
+        // The early start from your last short pause heard exactly this (and passed the echo check then): let it speak.
+        if (commit(text)) return Heard.Turn(activeTurn)
         val recentlySpeaking = speaking || SystemClock.elapsedRealtime() - speakingEndedAt < ECHO_WINDOW_MS
         if (recentlySpeaking && EchoGuard.isEcho(text, replySoFar.toString())) return Heard.Ignored("her own echo")
         return Heard.Turn(say(text, heardAt = lastVoiceAt, recognizeMs = recognizeMs))
     }
 
-    fun say(text: String, heardAt: Long = 0L, recognizeMs: Long = 0L): Int {
+    /**
+     * FTT: a short pause in your speech starts the reply early, held silent. The brain and the
+     * voice work while the end-of-turn wait runs out; [onUserUtterance] then commits it (same
+     * text) or it is cancelled when you speak again.
+     */
+    fun onUserPause(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
+        if (EchoGuard.rejectReason(text, voicedMs) != null) return
+        if (speaking && heldTurn == 0) return // she's talking: that's barge-in's business
+        if (SystemClock.elapsedRealtime() - speakingEndedAt < ECHO_WINDOW_MS && EchoGuard.isEcho(text, replySoFar.toString())) return
+        if (heldTurn != 0 && heldText == text) return
+        earlyStarted++
+        say(text, heardAt = lastVoiceAt, recognizeMs = recognizeMs, held = true)
+    }
+
+    // Early-start state. holdLock guards heldTurn and the UI callbacks deferred until commit.
+    private val holdLock = Any()
+    @Volatile private var heldTurn = 0
+    @Volatile private var heldText = ""
+    @Volatile private var holdGate = CountDownLatch(0)
+    private var heldTrace: TurnTrace? = null
+    private val deferred = mutableListOf<() -> Unit>()
+    @Volatile private var activeTrace: TurnTrace? = null
+    private var earlyStarted = 0
+    private var earlyCommitted = 0
+
+    /** Runs [action] now, or at commit if [trace]'s turn is still held; drops it for a cancelled early start. */
+    private fun liveOrDefer(trace: TurnTrace, action: () -> Unit) {
+        synchronized(holdLock) {
+            when {
+                trace.turn == heldTurn -> { deferred += action; return }
+                trace.early && !trace.committed -> return
+            }
+        }
+        action()
+    }
+
+    private fun commit(text: String): Boolean {
+        val actions: List<() -> Unit>
+        synchronized(holdLock) {
+            val t = heldTrace
+            if (heldTurn == 0 || heldTurn != activeTurn || heldText != text || t == null) return false
+            heldTurn = 0
+            t.committed = true
+            t.committedAt = now()
+            earlyCommitted++
+            t.earlyTally = "$earlyCommitted of $earlyStarted early starts used"
+            actions = deferred.toList()
+            deferred.clear()
+        }
+        actions.forEach { it() }
+        holdGate.countDown()
+        return true
+    }
+
+    fun say(text: String, heardAt: Long = 0L, recognizeMs: Long = 0L, held: Boolean = false): Int {
         stop()
         val turn = ++currentTurn
         activeTurn = turn
@@ -234,7 +293,15 @@ class Pipeline(
         trace.userText = text
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
-        ui.onThinking()
+        trace.early = held
+        activeTrace = trace
+        if (held) synchronized(holdLock) {
+            holdGate = CountDownLatch(1)
+            heldText = text
+            heldTrace = trace
+            heldTurn = turn
+        }
+        liveOrDefer(trace) { ui.onThinking() }
         llmExec.execute {
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
@@ -260,7 +327,7 @@ class Pipeline(
                     is EmotionTagStream.Part.Tag -> part.emotion?.let { e ->
                         // The first feeling shows at once (people react before they speak);
                         // later ones travel with their chunk and show when it plays.
-                        if (trace.emotions.isEmpty()) ui.onEmotion(e)
+                        if (trace.emotions.isEmpty()) liveOrDefer(trace) { ui.onEmotion(e) }
                         trace.emotions += e
                         feeling = e
                     }
@@ -272,7 +339,7 @@ class Pipeline(
             trace.llm = stats
             trace.llmDoneAt = now()
             trace.replyText = replySoFar.toString().trim()
-            ui.onReplyComplete(trace)
+            liveOrDefer(trace) { ui.onReplyComplete(trace) }
             ttsQueue.put(TtsJob.End(turn, trace))
         }
         return turn
@@ -308,15 +375,25 @@ class Pipeline(
 
     /** Stops generation and silences audio immediately. */
     fun stop() {
-        if (speaking) {
+        val wasHeld = synchronized(holdLock) {
+            val h = heldTurn != 0
+            heldTurn = 0
+            deferred.clear()
+            h
+        }
+        if (speaking && !wasHeld) {
             speakingEndedAt = now()
             ui.onInterrupted()
         }
+        // Cut off before you heard a word: take the reply back, so your next words join your last ones.
+        val unheard = activeTurn != 0 && activeTrace?.firstAudioAt == 0L
         activeTurn = 0
         currentTurn++
         NativeLlm.cancel()
         ttsQueue.clear()
+        holdGate.countDown()
         if (::audio.isInitialized) audio.flush()
+        if (unheard) llmExec.execute { NativeLlm.retractLastReply() }
     }
 
     private fun ttsLoop() {
@@ -336,6 +413,9 @@ class Pipeline(
                         val synthMs = now() - t0
                         val audioMs = samples.size * 1000L / v.sampleRate
                         job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
+                        if (job.turn != currentTurn) return@synchronized
+                        // An early start stays silent until your end of turn commits it (or stop() drops it).
+                        if (job.turn == heldTurn) holdGate.await()
                         if (job.turn != currentTurn) return@synchronized
                         val env = Envelope.of(samples, v.sampleRate, ENVELOPE_FRAME_MS)
                         audio.enqueue(samples, onStart = {
@@ -400,6 +480,11 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var memBefore: MemProbe.Snapshot? = null
     @Volatile var memAfter: MemProbe.Snapshot? = null
     @Volatile var heat = ""
+    /** FTT: started at a short pause, before your end of turn; [committedAt] when that end came. */
+    @Volatile var early = false
+    @Volatile var committed = false
+    @Volatile var committedAt = 0L
+    @Volatile var earlyTally = ""
     val chunks: MutableList<Chunk> = java.util.Collections.synchronizedList(mutableListOf())
     val emotions: MutableList<Emotion> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -411,6 +496,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         if (heardAt > 0 && firstAudioAt > 0) {
             appendLine("  you stopped -> her voice : ${firstAudioAt - heardAt} ms   <- from your last sound (incl. end-of-turn wait)")
             if (recognizeMs > 0) appendLine("  2nd-pass recognize      : $recognizeMs ms (included above)")
+            if (early) appendLine("  early start             : brain started ${t0 - heardAt} ms after you stopped, end of turn at ${committedAt - heardAt} ms ($earlyTally)")
         }
         appendLine("  first audio : ${rel(firstAudioAt)}   <- time until you hear a voice")
         append("  first token : ${rel(firstPieceAt)}")

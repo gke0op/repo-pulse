@@ -39,6 +39,12 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
         fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long)
         /** VAD sees speech right now: the hook for barge-in. */
         fun onSpeechActivity(partial: String)
+        /**
+         * A short pause ([PAUSE_MS] of quiet after real speech) with the second-pass text so far:
+         * the hook to start the reply early. If you don't speak again, [onFinal] follows with the
+         * same text and [lastVoiceAt].
+         */
+        fun onShortPause(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {}
     }
 
     private val recognizer = OnlineRecognizer(
@@ -85,6 +91,11 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
     /** Offline re-transcriber; null = use the streaming text as-is. */
     @Volatile var secondPass: Transcriber? = null
     private val secondPassExec = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "ears-2nd") }
+
+    /** Second-pass result at the last short pause; reused at end of turn if no voice came after it. */
+    private class PauseText(val utterance: Int, val lastVoiceAt: Long, val text: String, val ms: Long)
+    private var pauseText: PauseText? = null // ears-2nd thread only
+    private var utteranceId = 0 // mic thread; bumped whenever an utterance ends or is discarded
 
     /** Your last few utterances (audio + texts), for the on-device ASR bench. */
     val recent: MutableList<AsrBench.Utterance> = java.util.Collections.synchronizedList(mutableListOf())
@@ -136,6 +147,7 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
         // Audio of the current utterance, in 100 ms chunks; firstVoiced marks where speech began.
         val utterance = ArrayList<FloatArray>()
         var firstVoiced = -1
+        var pauseSent = false
         try {
             rec.startRecording()
             while (running) {
@@ -146,6 +158,8 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
 
                 if (discard) {
                     discard = false
+                    utteranceId++
+                    pauseSent = false
                     recognizer.reset(stream)
                     lastText = ""
                     voicedMs = 0
@@ -169,18 +183,28 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
                     if (firstVoiced < 0) firstVoiced = utterance.size - 1
                     lastVoiceAt = SystemClock.elapsedRealtime()
                     voicedMs += n * 1000 / SAMPLE_RATE
+                    pauseSent = false // talking again: the next pause gets its own early start
                     listener.onSpeechActivity(text)
+                } else if (!pauseSent && text.isNotEmpty() && voicedMs >= EchoGuard.MIN_VOICED_MS &&
+                    lastVoiceAt > 0 && SystemClock.elapsedRealtime() - lastVoiceAt >= PAUSE_MS) {
+                    pauseSent = true
+                    val from = if (firstVoiced < 0) 0 else maxOf(0, firstVoiced - PRE_ROLL_CHUNKS)
+                    pause(utteranceId, text, concat(utterance, from), lastVoiceAt, voicedMs)
                 }
 
                 if (recognizer.isEndpoint(stream)) {
                     // VAD's last speech is closer to when you actually stopped than ASR's last text
                     // change (measured ~0.7 s ASR lag); fall back to the latter if VAD never fired.
-                    if (text.isNotEmpty()) {
+                    // No VAD speech at all = the streaming model hearing words in silence ("And",
+                    // ~1/s on the S24: 1,930 in one session, each paying a second pass). Not an utterance.
+                    if (text.isNotEmpty() && voicedMs > 0) {
                         val heardAt = if (lastVoiceAt > 0) lastVoiceAt else lastChangeAt
                         // Start ~0.5 s before VAD fired: VAD needs a little speech before it triggers.
                         val from = if (firstVoiced < 0) 0 else maxOf(0, firstVoiced - PRE_ROLL_CHUNKS)
-                        finish(text, concat(utterance, from), heardAt, voicedMs)
+                        finish(utteranceId, text, concat(utterance, from), heardAt, lastVoiceAt, voicedMs)
                     }
+                    utteranceId++
+                    pauseSent = false
                     recognizer.reset(stream)
                     lastText = ""
                     voicedMs = 0
@@ -198,15 +222,29 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
         }
     }
 
-    /** Runs the second pass off the mic thread, so recording never stalls. */
-    private fun finish(streamingText: String, audio: FloatArray, heardAt: Long, voicedMs: Int) {
+    /** Second pass on the audio so far at a short pause (off the mic thread). */
+    private fun pause(utterance: Int, streamingText: String, audio: FloatArray, lastVoiceAt: Long, voicedMs: Int) {
         secondPassExec.execute {
-            val sp = secondPass
-            val r = if (sp == null) null else runCatching { sp.transcribe(audio) }.getOrNull()
+            val r = secondPass?.let { sp -> runCatching { sp.transcribe(audio) }.getOrNull() }
             val text = r?.text?.takeIf { it.isNotBlank() } ?: streamingText
+            pauseText = PauseText(utterance, lastVoiceAt, text, r?.ms ?: 0L)
+            listener.onShortPause(text, lastVoiceAt, voicedMs, r?.ms ?: 0L)
+        }
+    }
+
+    /** Runs the second pass off the mic thread, so recording never stalls. */
+    private fun finish(utterance: Int, streamingText: String, audio: FloatArray, heardAt: Long, lastVoiceAt: Long, voicedMs: Int) {
+        secondPassExec.execute {
+            // No voice since the last short pause: that pause already transcribed everything you said.
+            val early = pauseText?.takeIf { it.utterance == utterance && it.lastVoiceAt == lastVoiceAt }
+            pauseText = null
+            // Too little voice to count as a turn (EchoGuard rejects it): skip the costly re-transcription.
+            val sp = secondPass?.takeIf { early == null && voicedMs >= EchoGuard.MIN_VOICED_MS }
+            val r = if (sp == null) null else runCatching { sp.transcribe(audio) }.getOrNull()
+            val text = early?.text ?: r?.text?.takeIf { it.isNotBlank() } ?: streamingText
             recent += AsrBench.Utterance(audio, streamingText, text)
             while (recent.size > KEEP_RECENT) recent.removeAt(0)
-            listener.onFinal(text, heardAt, voicedMs, r?.ms ?: 0L)
+            listener.onFinal(text, heardAt, voicedMs, early?.ms ?: r?.ms ?: 0L)
         }
     }
 
@@ -219,6 +257,8 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
 
     companion object {
         const val PRE_ROLL_CHUNKS = 5          // 0.5 s
+        /** Quiet after VAD's last speech that counts as a short pause (VAD itself lags ~0.25 s). */
+        const val PAUSE_MS = 250L
         const val MAX_UTTERANCE_CHUNKS = 300   // 30 s
         const val KEEP_RECENT = 5
 

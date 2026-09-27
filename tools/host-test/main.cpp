@@ -69,6 +69,15 @@ int main(int argc, char ** argv) {
         std::printf("chat: prefill %3d tok %6.0f ms%s | %s -> %s\n", s3.prompt_tokens, s3.prefill_ms,
                     s3.rebuilt ? (" | trimmed, shift kept " + std::to_string(s3.shift_reused)).c_str() : "", t, r.c_str());
     }
+
+    // Split turn: cut off before anything was heard, retracted, then the rest of the sentence arrives.
+    {
+        LlmTurnStats s4; int k = 0;
+        chat.reply("I've been working", 96, [&](const std::string &) { return ++k < 3; }, s4, "[");
+        chat.retract_last_reply();
+        auto r = chat.reply("on a companion app with a machine character.", 96, [](const std::string &) { return true; }, s4, "[");
+        std::printf("split turn, retracted + joined: prefill %d tok -> %s\n", s4.prompt_tokens, r.c_str());
+    }
     llama_backend_free();
     return 0;
 }

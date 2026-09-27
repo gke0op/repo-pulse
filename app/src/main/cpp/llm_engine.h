@@ -49,6 +49,10 @@ public:
 
     void cancel() { cancel_.store(true); }
 
+    // Forget the last reply if nobody heard it (cancelled before any audio played). The user
+    // message stays, so the next one joins it. No-op if the last reply() stored nothing.
+    void retract_last_reply();
+
     std::string system_info() const;
 
 private:
@@ -69,4 +73,5 @@ private:
     std::vector<common_chat_msg> msgs_;      // msgs_[0] is the system message
     std::vector<llama_token>     kv_tokens_; // exactly what is in the KV cache, in order
     std::atomic<bool>            cancel_{false};
+    bool                         last_reply_stored_ = false;
 };

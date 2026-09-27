@@ -62,6 +62,7 @@ bool LlmEngine::load(const std::string & path, int n_ctx, int n_threads, int n_t
 }
 
 void LlmEngine::unload() {
+    last_reply_stored_ = false;
     if (sampler_) { common_sampler_free(sampler_); sampler_ = nullptr; }
     templates_.reset();
     if (batch_.token) { llama_batch_free(batch_); batch_ = {}; }
@@ -74,6 +75,7 @@ void LlmEngine::unload() {
 bool LlmEngine::set_system(const std::string & system_prompt) {
     if (!ctx_) return false;
     msgs_.clear();
+    last_reply_stored_ = false;
     common_chat_msg sys;
     sys.role    = "system";
     sys.content = system_prompt;
@@ -165,6 +167,7 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
                              const std::string & prefix) {
     stats = {};
     cancel_.store(false);
+    last_reply_stored_ = false;
     if (!ctx_ || msgs_.empty()) return "";
 
     // A turn that got no reply leaves its user message last. Fold the new text into it: roles
@@ -233,7 +236,13 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
     asst.role    = "assistant";
     asst.content = reply_text;
     msgs_.push_back(asst);
+    last_reply_stored_ = true;
     return reply_text;
+}
+
+void LlmEngine::retract_last_reply() {
+    if (last_reply_stored_ && msgs_.size() > 1 && msgs_.back().role == "assistant") msgs_.pop_back();
+    last_reply_stored_ = false;
 }
 
 std::string LlmEngine::system_info() const { return llama_print_system_info(); }

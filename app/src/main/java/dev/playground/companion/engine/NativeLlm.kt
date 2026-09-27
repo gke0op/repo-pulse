@@ -24,6 +24,8 @@ object NativeLlm {
     external fun setSystem(prompt: String): Boolean
     private external fun reply(user: String, maxTokens: Int, prefix: String, sink: PieceSink): DoubleArray
     external fun cancel()
+    /** Forget the last reply (nobody heard it); the next user message joins the unanswered one. */
+    external fun retractLastReply()
     external fun unload()
     external fun systemInfo(): String
 

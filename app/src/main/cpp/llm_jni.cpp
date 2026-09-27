@@ -73,6 +73,9 @@ JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_cancel(JNIEnv *, jobject) { g_engine.cancel(); }
 
 JNIEXPORT void JNICALL
+Java_dev_playground_companion_engine_NativeLlm_retractLastReply(JNIEnv *, jobject) { g_engine.retract_last_reply(); }
+
+JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_unload(JNIEnv *, jobject) { g_engine.unload(); }
 
 JNIEXPORT jstring JNICALL
