@@ -103,7 +103,8 @@ this spec and they will drop straight in.
 
 ### Delivery
 
-- Files: `mira.vrm`, `kai.vrm`, placed at `app/src/main/assets/avatar/models/`.
+- Files: `mira.vrm`, `kai.vrm`, committed to `models/avatar/` (not bundled in the APK; the app
+  downloads them on first use from a pinned commit, so update `AVATAR_BASE` in `ModelStore.kt`).
 - Include the VRM meta (author, license). Commercial use must be allowed. Check VRoid Studio's
   current terms for preset hair and clothing assets before shipping; to my knowledge they allow
   this, but verify it.

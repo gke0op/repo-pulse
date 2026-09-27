@@ -16,7 +16,7 @@ import java.util.Locale
  * Calls made before the page is ready are queued and replayed.
  */
 @SuppressLint("SetJavaScriptEnabled", "ViewConstructor")
-class AvatarView(ctx: Context) : WebView(ctx) {
+class AvatarView(ctx: Context, private val modelFile: (String) -> java.io.File) : WebView(ctx) {
     private var ready = false
     private val pending = mutableListOf<String>()
     var state = "idle"; private set
@@ -36,6 +36,12 @@ class AvatarView(ctx: Context) : WebView(ctx) {
             val url = req.url
             if (url.host != ASSET_HOST) return null
             val path = url.path?.trimStart('/') ?: return null
+            // Downloaded VRM models live in app storage, not in the APK's assets.
+            if (path.startsWith("avatar/models/")) {
+                val f = modelFile(path.substringAfterLast('/'))
+                return if (f.exists()) WebResourceResponse("model/gltf-binary", null, f.inputStream())
+                else WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null)
+            }
             val mime = when (path.substringAfterLast('.')) {
                 "html" -> "text/html"; "js" -> "text/javascript"; "vrm" -> "model/gltf-binary"
                 else -> "application/octet-stream"

@@ -98,10 +98,10 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
         root.addView(chars)
 
-        avatar = AvatarView(this)
+        avatar = AvatarView(this) { name -> store.avatarFile(name) }
         root.addView(avatar, LinearLayout.LayoutParams(-1, 0, 2.2f))
         root.addView(feelingsStrip())
-        avatar.setLook(prefs.getString(PREF_LOOK, "human") ?: "human")
+        applyLook(prefs.getString(PREF_LOOK, "human") ?: "human")
 
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
@@ -301,7 +301,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                 which < firstBench -> {
                     val look = if (which == firstLook) "human" else "orb"
                     prefs.edit().putString(PREF_LOOK, look).apply()
-                    avatar.setLook(look)
+                    applyLook(look)
                     log.event("look -> $look")
                 }
                 which == firstBench -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
@@ -337,6 +337,29 @@ class MainActivity : Activity(), Pipeline.Listener {
                 putExtra(android.content.Intent.EXTRA_TEXT, text)
             }
             startActivity(android.content.Intent.createChooser(send, "Share session log"))
+        }
+    }
+
+    /**
+     * Humans need their VRM models downloaded once (~34 MB); until then Mira and Kai show as
+     * orbs and switch over by themselves when the download finishes.
+     */
+    private fun applyLook(look: String) {
+        if (look != "human" || store.avatarsReady()) { avatar.setLook(look); return }
+        avatar.setLook("orb")
+        thread(name = "avatars") {
+            try {
+                store.ensureAvatars { what, done, total ->
+                    val pct = if (total > 0) " ${done * 100 / total}%" else ""
+                    runOnUiThread { status.text = "$what$pct (orbs until then)" }
+                }
+                runOnUiThread {
+                    if (prefs.getString(PREF_LOOK, "human") == "human") avatar.setLook("human")
+                    status.text = "Humans ready"
+                }
+            } catch (t: Throwable) {
+                runOnUiThread { status.text = "Avatar download failed: ${t.message} (Models… > Look to retry)" }
+            }
         }
     }
 
