@@ -52,7 +52,7 @@ class MainActivity : Activity(), Pipeline.Listener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        store = ModelStore(filesDir)
+        store = ModelStore(applicationContext)
         val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
         val savedLlm = runCatching { LlmModel.valueOf(prefs.getString(PREF_LLM, "")!!) }.getOrNull()
         pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE, savedLlm ?: ModelStore.DEFAULT_LLM)

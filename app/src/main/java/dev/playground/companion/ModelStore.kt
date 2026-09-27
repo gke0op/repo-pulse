@@ -1,5 +1,8 @@
 package dev.playground.companion
 
+import android.app.DownloadManager
+import android.content.Context
+import android.net.Uri
 import dev.playground.companion.engine.AsrEngine
 import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.VoiceEngine
@@ -9,17 +12,32 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 
-/** Downloads models once into app storage. After that everything runs offline. */
-class ModelStore(root: File) {
-    private val dir = File(root, "models").apply { mkdirs() }
+/**
+ * Downloads models once; after that everything runs offline.
+ *
+ * Downloads go through Android's DownloadManager, so they keep going with the screen off
+ * or the app closed, retry on network changes, and show progress in the notification
+ * shade. DownloadManager can only write to app-specific external storage, so new models
+ * land there; models from older builds stay where they are (internal storage) and are
+ * found in either place.
+ */
+class ModelStore(ctx: Context) {
+    private val legacyDir = File(ctx.filesDir, "models")
+    private val dir = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "models").apply { mkdirs() }
+    private val dm = ctx.getSystemService(DownloadManager::class.java)
 
-    fun voiceDir(e: VoiceEngine) = File(dir, e.dirName)
+    /** Where [name] lives: the legacy internal copy if a finished one exists, else the new location. */
+    private fun place(name: String, isDir: Boolean = false): File {
+        val old = File(legacyDir, name)
+        val done = if (isDir) File(old, ".ok").exists() else old.exists()
+        return if (done) old else File(dir, name)
+    }
+
+    fun voiceDir(e: VoiceEngine) = place(e.dirName, isDir = true)
     fun voiceReady(e: VoiceEngine) = File(voiceDir(e), ".ok").exists()
 
-    fun llmFile(m: LlmModel) = File(dir, m.fileName)
+    fun llmFile(m: LlmModel) = place(m.fileName)
     fun llmReady(m: LlmModel) = llmFile(m).exists()
 
     /** Any one brain plus any one voice are needed to start; the rest download on demand. */
@@ -32,84 +50,116 @@ class ModelStore(root: File) {
     }
 
     fun ensureLlm(m: LlmModel, progress: (String, Long, Long) -> Unit) {
-        if (!llmReady(m)) download(m.url, llmFile(m)) { d, t -> progress("Brain (${m.label})", d, t) }
+        if (!llmReady(m)) download(m.url, llmFile(m), "Brain (${m.label})", progress)
     }
 
-    val asrDir = File(dir, "asr-zipformer-en-2023-06-26-int8")
-    val vadFile = File(dir, "silero_vad.onnx")
+    val asrDir get() = place("asr-zipformer-en-2023-06-26-int8", isDir = true)
+    val vadFile get() = place("silero_vad.onnx")
     fun earsReady() = File(asrDir, ".ok").exists() && vadFile.exists()
 
     /** Streaming ASR (int8 files only, ~73 MB) + Silero VAD. */
     fun ensureEars(progress: (String, Long, Long) -> Unit) {
-        if (!vadFile.exists()) download(VAD_URL, vadFile) { d, t -> progress("Voice activity model", d, t) }
-        if (File(asrDir, ".ok").exists()) return
-        asrDir.mkdirs()
+        if (!vadFile.exists()) download(VAD_URL, vadFile, "Voice activity model", progress)
+        val asr = asrDir
+        if (File(asr, ".ok").exists()) return
+        asr.mkdirs()
         for (name in ASR_FILES) {
-            val f = File(asrDir, name)
-            if (!f.exists()) download("$ASR_BASE/$name", f) { d, t -> progress("Speech recognition ($name)", d, t) }
+            val f = File(asr, name)
+            if (!f.exists()) download("$ASR_BASE/$name", f, "Speech recognition", progress)
         }
-        File(asrDir, ".ok").writeText("ok")
+        File(asr, ".ok").writeText("ok")
     }
 
-    fun asr2Dir(e: AsrEngine) = File(dir, e.dirName)
+    fun asr2Dir(e: AsrEngine) = place(e.dirName, isDir = true)
     fun asr2Ready(e: AsrEngine) = File(asr2Dir(e), ".ok").exists()
 
     fun ensureAsr2(e: AsrEngine, progress: (String, Long, Long) -> Unit) {
-        if (asr2Ready(e)) return
-        val tar = File(dir, "${e.dirName}.tar.bz2")
-        download(e.url, tar) { d, t -> progress("Recognizer (${e.label})", d, t) }
-        progress("Unpacking ${e.label}", 0, 0)
-        untarBz2(tar, dir)
-        tar.delete()
-        File(asr2Dir(e), ".ok").writeText("ok")
+        if (!asr2Ready(e)) fetchTarball(e.url, e.dirName, "Recognizer (${e.label})", progress)
     }
 
     fun ensureVoice(e: VoiceEngine, progress: (String, Long, Long) -> Unit) {
-        if (voiceReady(e)) return
-        val tar = File(dir, "${e.dirName}.tar.bz2")
-        download(e.url, tar) { d, t -> progress("Voice (${e.label})", d, t) }
-        progress("Unpacking ${e.label}", 0, 0)
-        untarBz2(tar, dir)
-        tar.delete()
-        File(voiceDir(e), ".ok").writeText("ok")
+        if (!voiceReady(e)) fetchTarball(e.url, e.dirName, "Voice (${e.label})", progress)
     }
 
-    private fun download(url: String, dest: File, progress: (Long, Long) -> Unit) {
-        val part = File(dest.path + ".part")
-        var have = if (part.exists()) part.length() else 0L
-        var conn = open(url, have)
-        // Follow redirects manually so the Range header survives (HF redirects to a CDN).
-        var hops = 0
-        while (conn.responseCode in 300..399 && hops++ < 8) {
-            val next = URL(URL(url), conn.getHeaderField("Location")).toString()
-            conn.disconnect()
-            conn = open(next, have)
+    /** Downloads a .tar.bz2 and unpacks it into [dir]; `.ok` marks a complete unpack. */
+    private fun fetchTarball(url: String, dirName: String, label: String, progress: (String, Long, Long) -> Unit) {
+        val tar = File(dir, "$dirName.tar.bz2")
+        download(url, tar, label, progress) // returns at once if a finished tarball is already here
+        progress("Unpacking $label", 0, 0)
+        untarBz2(tar, dir)
+        File(dir, "$dirName/.ok").writeText("ok")
+        tar.delete()
+    }
+
+    /**
+     * Blocks until [dest] is fully downloaded. Re-attaches to a DownloadManager job already
+     * running for the same file (e.g. started before the app was closed) instead of restarting.
+     */
+    private fun download(url: String, dest: File, label: String, progress: (String, Long, Long) -> Unit) {
+        if (dest.exists()) return
+        dest.parentFile?.mkdirs()
+        val tmp = File(dest.path + ".download")
+        val id = findJob(url, tmp) ?: run {
+            tmp.delete() // DownloadManager refuses to overwrite a leftover partial file
+            dm.enqueue(
+                DownloadManager.Request(Uri.parse(url))
+                    .setDestinationUri(Uri.fromFile(tmp))
+                    .setTitle("Companion: $label")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(true),
+            )
         }
-        if (conn.responseCode == 200) have = 0L // server ignored Range: restart
-        else if (conn.responseCode != 206) throw IOException("HTTP ${conn.responseCode} for $url")
-        val total = have + conn.contentLengthLong
-        conn.inputStream.use { input ->
-            FileOutputStream(part, have > 0).use { out ->
-                val buf = ByteArray(1 shl 16)
-                var done = have
-                var lastReport = 0L
-                while (true) {
-                    val n = input.read(buf)
-                    if (n < 0) break
-                    out.write(buf, 0, n)
-                    done += n
-                    if (done - lastReport > (1 shl 20)) { progress(done, total); lastReport = done }
+        while (true) {
+            val job = query(id) ?: throw IOException("download of $label was cancelled")
+            when (job.status) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    if (!tmp.renameTo(dest)) throw IOException("could not move $label into place")
+                    return
+                }
+                DownloadManager.STATUS_FAILED -> {
+                    dm.remove(id)
+                    throw IOException("download of $label failed (reason ${job.reason}); tap again to retry")
+                }
+                DownloadManager.STATUS_PAUSED -> progress("$label: paused (${pauseReason(job.reason)})", job.done, job.total)
+                else -> progress(label, job.done, job.total)
+            }
+            Thread.sleep(500)
+        }
+    }
+
+    private class Job(val status: Int, val reason: Int, val done: Long, val total: Long)
+
+    private fun query(id: Long): Job? =
+        dm.query(DownloadManager.Query().setFilterById(id)).use { c ->
+            if (!c.moveToFirst()) return null
+            Job(
+                c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)),
+                c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)),
+                c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)),
+                c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)),
+            )
+        }
+
+    /** A live (not failed) job for this URL writing to [tmp], if one exists. */
+    private fun findJob(url: String, tmp: File): Long? =
+        dm.query(DownloadManager.Query()).use { c ->
+            while (c.moveToNext()) {
+                val uri = c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_URI))
+                val local = c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+                val status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                if (uri == url && local != null && Uri.parse(local).path == tmp.path && status != DownloadManager.STATUS_FAILED) {
+                    return c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_ID))
                 }
             }
+            null
         }
-        if (!part.renameTo(dest)) throw IOException("rename failed for $dest")
-    }
 
-    private fun open(url: String, from: Long) = (URL(url).openConnection() as HttpURLConnection).apply {
-        instanceFollowRedirects = false
-        connectTimeout = 20_000
-        readTimeout = 60_000
-        if (from > 0) setRequestProperty("Range", "bytes=$from-")
+    private fun pauseReason(r: Int) = when (r) {
+        DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "waiting for network"
+        DownloadManager.PAUSED_WAITING_TO_RETRY -> "retrying soon"
+        DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "waiting for Wi-Fi"
+        else -> "paused"
     }
 
     private fun untarBz2(archive: File, into: File) {
