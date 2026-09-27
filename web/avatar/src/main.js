@@ -7,10 +7,13 @@
 //   avatar.stopSpeaking()
 //   avatar.flinch()                                          // interrupted / startled
 //   avatar.setEmotion('calm'|'happy'|'sad'|'angry'|'surprised'|'curious'|'tender')
+//   avatar.setProfile('A' | 'B')                            // emotion intensity A/B (humans)
+//   avatar.setLook('human' | 'orb')                         // Mira and Kai as VRM humans or plasma orbs
 //   avatar.pause() / avatar.resume()
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
 import { Orb } from './orb.js';
+import { VrmAvatar } from './vrm.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -73,6 +76,7 @@ const KEYS = ['ripple', 'lean', 'unrest', 'swirl', 'eyeLock', 'dilate', 'pulse',
 const s = {
   t: 0, breath: 1, speech: 0, mouth: 0, glitch: 0, nod: 0, tilt: 0,
   focus: new THREE.Vector3(0, 0.1, 7), glowColor: new THREE.Color(0x7fffe0),
+  profile: 'A',   // emotion intensity profile for the humans (A/B test), see vrm.js
 };
 const target = {};
 let stateName = 'idle';
@@ -117,11 +121,20 @@ applyState('idle');
 
 let character = null;
 let charId = null;
-function setCharacter(id) {
-  if (id === charId) return;
+// Mira and Kai can be VRM humans or plasma orbs (the orb is a keeper, not just a placeholder).
+let look = params.get('orb') ? 'orb' : 'human';
+function setCharacter(id, force = false) {
+  if (id === charId && !force) return;
   character?.dispose();
   charId = id;
-  character = id === 'machine' ? new Shoggoth(scene) : new Orb(scene, id);
+  character = id === 'machine' ? new Shoggoth(scene)
+    : look === 'orb' ? new Orb(scene, id) : new VrmAvatar(scene, id);
+}
+function setLook(l) {
+  const next = l === 'orb' ? 'orb' : 'human';
+  if (next === look) return;
+  look = next;
+  if (charId && charId !== 'machine') setCharacter(charId, true);
 }
 
 // ---- lip-sync --------------------------------------------------------------------
@@ -232,6 +245,10 @@ window.avatar = {
   stopSpeaking() { env = null; s.mouth = 0; },
   flinch,
   setEmotion,
+  setProfile(p) { s.profile = p === 'B' ? 'B' : 'A'; },
+  setLook,
+  isLoaded: () => character?.vrm !== null,
+  debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
   resume() { if (!running) { running = true; timer.update(); frame(); } },
 };
@@ -239,5 +256,6 @@ window.avatar = {
 setCharacter(params.get('char') || 'machine');
 if (params.get('state')) window.avatar.setState(params.get('state'));
 if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
+if (params.get('profile')) window.avatar.setProfile(params.get('profile'));
 frame();
 window.AndroidAvatar?.onReady();
