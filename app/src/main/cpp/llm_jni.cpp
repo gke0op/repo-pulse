@@ -30,8 +30,8 @@ Java_dev_playground_companion_engine_NativeLlm_init(JNIEnv * env, jobject, jstri
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_playground_companion_engine_NativeLlm_load(JNIEnv * env, jobject, jstring path, jint n_ctx, jint n_threads) {
-    return g_engine.load(to_std(env, path), n_ctx, n_threads);
+Java_dev_playground_companion_engine_NativeLlm_load(JNIEnv * env, jobject, jstring path, jint n_ctx, jint n_threads, jint n_threads_batch) {
+    return g_engine.load(to_std(env, path), n_ctx, n_threads, n_threads_batch);
 }
 
 JNIEXPORT jboolean JNICALL

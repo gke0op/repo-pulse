@@ -17,7 +17,8 @@ object NativeLlm {
     init { System.loadLibrary("companion") }
 
     external fun init(nativeLibDir: String)
-    external fun load(path: String, nCtx: Int, nThreads: Int): Boolean
+    /** [nThreadsBatch]: threads for prompt processing, which scales with cores; generation uses [nThreads]. */
+    external fun load(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int): Boolean
     external fun setSystem(prompt: String): Boolean
     private external fun reply(user: String, maxTokens: Int, prefix: String, sink: PieceSink): DoubleArray
     external fun cancel()

@@ -74,7 +74,7 @@ class Pipeline(
         if (!store.llmReady(llmModel)) llmModel = LlmModel.entries.first(store::llmReady)
         var t = SystemClock.elapsedRealtime()
         NativeLlm.init(ctx.applicationInfo.nativeLibraryDir)
-        check(NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS)) { "LLM failed to load" }
+        check(NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS)) { "LLM failed to load" }
         val llmMs = SystemClock.elapsedRealtime() - t
 
         ui.onStatus("Loading voice…")
@@ -87,7 +87,7 @@ class Pipeline(
         applyCharacter(character)
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS tts ${voiceEngine.threads}")
+            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS/$LLM_BATCH_THREADS tts ${voiceEngine.threads}")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
@@ -163,14 +163,14 @@ class Pipeline(
                 }
                 ui.onStatus("Loading ${m.label}…")
                 NativeLlm.unload()
-                check(NativeLlm.load(store.llmFile(m).path, N_CTX, LLM_THREADS)) { "failed to load ${m.label}" }
+                check(NativeLlm.load(store.llmFile(m).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS)) { "failed to load ${m.label}" }
                 llmModel = m
                 applyCharacter(character)
                 ui.onStatus("Ready")
                 onDone(null)
             } catch (t: Throwable) {
                 // Fall back to whatever loads, so the app stays usable.
-                runCatching { NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS); applyCharacter(character) }
+                runCatching { NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS); applyCharacter(character) }
                 ui.onStatus("Brain switch failed: ${t.message}")
                 onDone(t.message ?: "failed")
             }
@@ -354,7 +354,9 @@ class Pipeline(
     companion object {
         const val N_CTX = 2048
         const val LLM_THREADS = 4
-        const val MAX_REPLY_TOKENS = 160
+        /** Prompt processing is compute-bound; phone measured ~35-40 tok/s on 4 threads with Gemma 4B. */
+        const val LLM_BATCH_THREADS = 6
+        const val MAX_REPLY_TOKENS = 400 // 160 cut a requested song mid-outro; Stop still cuts long replies
         /** After she stops, mic text matching her words is still treated as echo for this long. */
         const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
         const val ENVELOPE_FRAME_MS = 20

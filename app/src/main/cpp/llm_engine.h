@@ -28,7 +28,9 @@ public:
 
     ~LlmEngine();
 
-    bool load(const std::string & path, int n_ctx, int n_threads);
+    // n_threads_batch: prompt processing is compute-bound and scales with more cores than
+    // token generation (memory-bound); 0 = same as n_threads.
+    bool load(const std::string & path, int n_ctx, int n_threads, int n_threads_batch = 0);
     void unload();
     bool loaded() const { return model_ != nullptr; }
 
@@ -49,6 +51,7 @@ public:
     std::string system_info() const;
 
 private:
+    std::string render_text(const std::vector<common_chat_msg> & msgs, bool add_generation_prompt) const;
     std::vector<llama_token> render(bool add_generation_prompt) const;
     bool sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & stats);
     bool decode_from(const std::vector<llama_token> & tokens, size_t start);

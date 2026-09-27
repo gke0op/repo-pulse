@@ -31,7 +31,7 @@ size_t utf8_complete_prefix(const std::string & s) {
 
 LlmEngine::~LlmEngine() { unload(); }
 
-bool LlmEngine::load(const std::string & path, int n_ctx, int n_threads) {
+bool LlmEngine::load(const std::string & path, int n_ctx, int n_threads, int n_threads_batch) {
     unload();
 
     llama_model_params mp = llama_model_default_params();
@@ -44,7 +44,7 @@ bool LlmEngine::load(const std::string & path, int n_ctx, int n_threads) {
     cp.n_batch         = n_batch_;
     cp.n_ubatch        = n_batch_;
     cp.n_threads       = n_threads;
-    cp.n_threads_batch = n_threads;
+    cp.n_threads_batch = n_threads_batch > 0 ? n_threads_batch : n_threads;
     ctx_ = llama_init_from_model(model_, cp);
     if (!ctx_) { unload(); return false; }
     n_ctx_ = (int) llama_n_ctx(ctx_);
@@ -78,17 +78,32 @@ bool LlmEngine::set_system(const std::string & system_prompt) {
     sys.role    = "system";
     sys.content = system_prompt;
     msgs_.push_back(sys);
+
+    // Precompute everything up to where the first user message's text will go. Rendering the
+    // system message alone isn't enough: templates without a system role (Gemma) fold it into
+    // the first user turn, so that render never matches the real prompt and the whole system
+    // prompt was re-decoded on the first reply (measured: 276 tokens, 6.5 s on the phone).
+    static const std::string MARK = "\x01\x02USER\x02\x01";
+    common_chat_msg probe;
+    probe.role    = "user";
+    probe.content = MARK;
+    const std::string full = render_text({sys, probe}, true);
+    const size_t at = full.find(MARK);
+    const std::string head = at == std::string::npos ? render_text(msgs_, false) : full.substr(0, at);
     LlmTurnStats ignored;
-    return sync_kv(render(false), ignored);
+    return sync_kv(common_tokenize(ctx_, head, /*add_special*/ true, /*parse_special*/ true), ignored);
+}
+
+std::string LlmEngine::render_text(const std::vector<common_chat_msg> & msgs, bool add_generation_prompt) const {
+    common_chat_templates_inputs in;
+    in.messages              = msgs;
+    in.add_generation_prompt = add_generation_prompt;
+    in.use_jinja             = true;
+    return common_chat_templates_apply(templates_.get(), in).prompt;
 }
 
 std::vector<llama_token> LlmEngine::render(bool add_generation_prompt) const {
-    common_chat_templates_inputs in;
-    in.messages              = msgs_;
-    in.add_generation_prompt = add_generation_prompt;
-    in.use_jinja             = true;
-    const auto params = common_chat_templates_apply(templates_.get(), in);
-    return common_tokenize(ctx_, params.prompt, /*add_special*/ true, /*parse_special*/ true);
+    return common_tokenize(ctx_, render_text(msgs_, add_generation_prompt), /*add_special*/ true, /*parse_special*/ true);
 }
 
 // Make the KV cache hold exactly `prompt`, reusing the longest shared prefix.
