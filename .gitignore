@@ -13,3 +13,6 @@ local.properties
 # Fetched by scripts/fetch-deps.sh
 third_party/
 app/src/main/jniLibs/
+
+# Avatar web build
+web/avatar/node_modules/

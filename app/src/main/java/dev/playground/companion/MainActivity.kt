@@ -40,7 +40,9 @@ class MainActivity : Activity(), Pipeline.Listener {
     private lateinit var input: EditText
     private lateinit var send: Button
     private lateinit var download: Button
+    private lateinit var avatar: AvatarView
     private lateinit var voiceButton: Button
+    @Volatile private var lastVoiceAt = 0L
     private lateinit var micButton: Button
     private var ears: Ears? = null
     @Volatile private var micOn = false
@@ -93,6 +95,9 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
         root.addView(chars)
 
+        avatar = AvatarView(this)
+        root.addView(avatar, LinearLayout.LayoutParams(-1, 0, 2.2f))
+
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
         download = Button(this).apply {
@@ -103,10 +108,10 @@ class MainActivity : Activity(), Pipeline.Listener {
         root.addView(download)
 
         transcript = label(16f, Color.WHITE)
-        root.addView(ScrollView(this).apply { addView(transcript) }, LinearLayout.LayoutParams(-1, 0, 1.2f))
+        root.addView(ScrollView(this).apply { addView(transcript) }, LinearLayout.LayoutParams(-1, 0, 1.0f))
 
         metrics = label(11f, Color.rgb(170, 255, 170)).apply { typeface = Typeface.MONOSPACE }
-        root.addView(ScrollView(this).apply { addView(metrics) }, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(ScrollView(this).apply { addView(metrics) }, LinearLayout.LayoutParams(-1, 0, 0.55f))
 
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         input = EditText(this).apply {
@@ -191,6 +196,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                 micButton.isEnabled = true
                 status.text = "Ready · brain: ${pipeline.llmModel.label} (change in Models…)"
                 highlight()
+                avatar.setCharacter(pipeline.character.id)
             }
         }
     }
@@ -378,7 +384,15 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
 
         override fun onSpeechActivity(partial: String) {
-            if (micOn && pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
+            if (!micOn) return
+            lastVoiceAt = android.os.SystemClock.elapsedRealtime()
+            if (pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
+            runOnUiThread {
+                if (avatar.state == "idle") {
+                    avatar.setState("listening")
+                    avatar.postDelayed(listeningTimeout, LISTEN_TIMEOUT_MS)
+                }
+            }
         }
 
         override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
@@ -399,7 +413,27 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
     }
 
+    /** Back to idle if the voice stopped and nothing (a turn, an ignored blip) moved it on. */
+    private val listeningTimeout = object : Runnable {
+        override fun run() {
+            if (avatar.state != "listening") return
+            if (android.os.SystemClock.elapsedRealtime() - lastVoiceAt >= LISTEN_TIMEOUT_MS) avatar.setState("idle")
+            else avatar.postDelayed(this, LISTEN_TIMEOUT_MS)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        avatar.pauseRendering()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        avatar.resumeRendering()
+    }
+
     override fun onDestroy() {
+        avatar.destroy()
         ears?.release()
         if (micOn) setCallMode(false)
         super.onDestroy()
@@ -407,6 +441,8 @@ class MainActivity : Activity(), Pipeline.Listener {
 
     private fun selectCharacter(c: Character) {
         pipeline.select(c)
+        avatar.setCharacter(c.id)
+        avatar.setState("idle")
         transcript.append("\n— now talking to ${c.name} —\n")
         highlight()
     }
@@ -429,9 +465,22 @@ class MainActivity : Activity(), Pipeline.Listener {
         if (turn == liveTurn) transcript.append(piece)
     }
 
+    override fun onThinking() = runOnUiThread { avatar.setState("thinking") }
+
+    override fun onSpeechChunk(envelope: FloatArray, frameMs: Int) = runOnUiThread {
+        avatar.speak(envelope, frameMs, if (micOn) CALL_AUDIO_DELAY_MS else MEDIA_AUDIO_DELAY_MS)
+    }
+
+    override fun onInterrupted() = runOnUiThread {
+        avatar.stopSpeaking()
+        avatar.flinch()
+        avatar.setState("listening")
+    }
+
     override fun onTurnDone(turn: Int, report: String) = runOnUiThread {
         // She finished: throw away her echo tail so it can't become a fake user utterance.
         ears?.discardUtterance()
+        avatar.setState("idle")
         reports.append(report).append("\n\n")
         metrics.text = pipeline.loadReport + "\n\n" + report
     }
@@ -441,5 +490,9 @@ class MainActivity : Activity(), Pipeline.Listener {
         const val REQ_MIC = 1
         const val PREF_ASR = "asr_engine"
         const val PREF_LLM = "llm_model"
+        const val LISTEN_TIMEOUT_MS = 1500L
+        // Rough output latency so the mouth moves with the sound, not before it (tune by eye).
+        const val MEDIA_AUDIO_DELAY_MS = 90
+        const val CALL_AUDIO_DELAY_MS = 140
     }
 }

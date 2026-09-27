@@ -1,0 +1,17 @@
+{
+  "name": "companion-avatar",
+  "private": true,
+  "description": "Procedural avatars (Unit Seven's shoggoth, placeholder orbs) rendered with three.js inside the app's WebView.",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=../../app/src/main/assets/avatar/avatar.js",
+    "watch": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=../../app/src/main/assets/avatar/avatar.js --watch",
+    "shoot": "node shoot.mjs"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "esbuild": "0.28.2"
+  }
+}

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
 import dev.playground.companion.engine.EchoGuard
+import dev.playground.companion.engine.Envelope
 import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
@@ -36,6 +37,14 @@ class Pipeline(
         fun onStatus(text: String)
         fun onReplyText(turn: Int, piece: String)
         fun onTurnDone(turn: Int, report: String)
+
+        // Body language for the avatar (called from worker threads).
+        /** A turn started: the character is working out a reply. */
+        fun onThinking() {}
+        /** An audio chunk starts playing now; [envelope] is its loudness per [frameMs]. */
+        fun onSpeechChunk(envelope: FloatArray, frameMs: Int) {}
+        /** The character was cut off mid-reply. */
+        fun onInterrupted() {}
     }
 
     private val llmExec = Executors.newSingleThreadExecutor { Thread(it, "llm") }
@@ -215,6 +224,7 @@ class Pipeline(
         val trace = TurnTrace(turn, "${character.name}, ${llmModel.label}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
+        ui.onThinking()
         llmExec.execute {
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
@@ -269,7 +279,10 @@ class Pipeline(
 
     /** Stops generation and silences audio immediately. */
     fun stop() {
-        if (speaking) speakingEndedAt = now()
+        if (speaking) {
+            speakingEndedAt = now()
+            ui.onInterrupted()
+        }
         activeTurn = 0
         currentTurn++
         NativeLlm.cancel()
@@ -295,8 +308,10 @@ class Pipeline(
                         val audioMs = samples.size * 1000L / v.sampleRate
                         job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
                         if (job.turn != currentTurn) return@synchronized
+                        val env = Envelope.of(samples, v.sampleRate, ENVELOPE_FRAME_MS)
                         audio.enqueue(samples, onStart = {
                             if (job.trace.firstAudioAt == 0L) job.trace.firstAudioAt = now()
+                            if (job.turn == currentTurn) ui.onSpeechChunk(env, ENVELOPE_FRAME_MS)
                         })
                     }
                 }
@@ -318,6 +333,7 @@ class Pipeline(
         const val MAX_REPLY_TOKENS = 160
         /** After she stops, mic text matching her words is still treated as echo for this long. */
         const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
+        const val ENVELOPE_FRAME_MS = 20
     }
 }
 
