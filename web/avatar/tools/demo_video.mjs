@@ -13,7 +13,8 @@ const out = process.argv[3];
 const W = 480, H = 600;
 
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  // CHROME_PATH if set (e.g. the cloud VM's /opt/pw-browsers/...), else Playwright's own Chromium.
+  executablePath: process.env.CHROME_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const t0 = Date.now();

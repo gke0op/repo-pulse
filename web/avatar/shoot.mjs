@@ -21,7 +21,8 @@ const page_url = `http://127.0.0.1:${server.address().port}/avatar/index.html`;
 const out = process.argv[2] || '/tmp';
 
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  // CHROME_PATH if set (e.g. the cloud VM's /opt/pw-browsers/...), else Playwright's own Chromium.
+  executablePath: process.env.CHROME_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const page = await browser.newPage({ viewport: { width: 400, height: 460 }, deviceScaleFactor: 2 });
