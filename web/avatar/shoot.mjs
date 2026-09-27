@@ -3,9 +3,21 @@
 import { chromium } from 'playwright';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import http from 'node:http';
+import fs from 'node:fs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const page_url = 'file://' + path.resolve(here, '../../app/src/main/assets/avatar/index.html');
+// Served over http like the app does (fetch() can't read file:// URLs, and VRM models are fetched).
+const assets = path.resolve(here, '../../app/src/main/assets');
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.vrm': 'model/gltf-binary' };
+const server = http.createServer((req, res) => {
+  const f = path.join(assets, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  if (req.url === '/favicon.ico') { res.writeHead(204).end(); return; }
+  if (!f.startsWith(assets) || !fs.existsSync(f)) { res.writeHead(404).end(); return; }
+  res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' });
+  fs.createReadStream(f).pipe(res);
+}).listen(0);
+const page_url = `http://127.0.0.1:${server.address().port}/avatar/index.html`;
 const out = process.argv[2] || '/tmp';
 
 const browser = await chromium.launch({
@@ -22,12 +34,15 @@ const shots = [
   ['machine', 'listening', null],
   ['machine', 'thinking', null],
   ['machine', 'speaking', 'speak'],
-  ['girl', 'listening', null],
-  ['boy', 'speaking', 'speak'],
   ...['happy', 'sad', 'angry', 'surprised', 'curious', 'tender'].map(e => ['machine', 'speaking', 'speak', e]),
+  ...['girl', 'boy'].flatMap(c => [
+    [c, 'idle', null], [c, 'listening', null], [c, 'thinking', null], [c, 'speaking', 'speak'],
+    ...['happy', 'sad', 'angry', 'surprised', 'curious', 'tender'].map(e => [c, 'idle', null, e]),
+  ]),
 ];
 for (const [char, state, action, emo] of shots) {
   await page.goto(`${page_url}?char=${char}&state=${state}&t=7${emo ? `&emo=${emo}` : ''}`);
+  await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });
   await page.waitForTimeout(2500); // let the state blend settle
   if (action === 'speak') {
     await page.evaluate(() => avatar.speak(Array.from({ length: 200 }, (_, i) => 0.5 + 0.5 * Math.sin(i * 0.4)), 20, 0));
@@ -43,4 +58,5 @@ const fps = await page.evaluate(() => new Promise(res => {
 }));
 console.log('fps (swiftshader, CPU-rendered):', fps.toFixed(1));
 await browser.close();
+server.close();
 if (errors.length) { console.error('CONSOLE ERRORS:\n' + errors.join('\n')); process.exit(1); }

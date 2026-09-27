@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import java.util.Locale
@@ -23,10 +25,30 @@ class AvatarView(ctx: Context) : WebView(ctx) {
         setBackgroundColor(Color.rgb(5, 5, 10))
         settings.javaScriptEnabled = true
         settings.allowFileAccess = false // file:///android_asset stays readable regardless
-        webViewClient = WebViewClient()
+        webViewClient = AssetClient()
         addJavascriptInterface(Bridge(), "AndroidAvatar")
-        loadUrl("file:///android_asset/avatar/index.html")
+        loadUrl("https://$ASSET_HOST/avatar/index.html")
     }
+
+    /** Serves app assets on a private https origin so the page can fetch() its .vrm models (file:// can't). */
+    private inner class AssetClient : WebViewClient() {
+        override fun shouldInterceptRequest(view: WebView, req: WebResourceRequest): WebResourceResponse? {
+            val url = req.url
+            if (url.host != ASSET_HOST) return null
+            val path = url.path?.trimStart('/') ?: return null
+            val mime = when (path.substringAfterLast('.')) {
+                "html" -> "text/html"; "js" -> "text/javascript"; "vrm" -> "model/gltf-binary"
+                else -> "application/octet-stream"
+            }
+            return try {
+                WebResourceResponse(mime, "utf-8", context.assets.open(path))
+            } catch (e: java.io.IOException) {
+                WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null)
+            }
+        }
+    }
+
+    private companion object { const val ASSET_HOST = "appassets.androidplatform.net" }
 
     private inner class Bridge {
         @JavascriptInterface

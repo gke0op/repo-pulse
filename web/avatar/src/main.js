@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
 import { Orb } from './orb.js';
+import { VrmAvatar } from './vrm.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -121,7 +122,8 @@ function setCharacter(id) {
   if (id === charId) return;
   character?.dispose();
   charId = id;
-  character = id === 'machine' ? new Shoggoth(scene) : new Orb(scene, id);
+  character = id === 'machine' ? new Shoggoth(scene)
+    : params.get('orb') ? new Orb(scene, id) : new VrmAvatar(scene, id);
 }
 
 // ---- lip-sync --------------------------------------------------------------------
@@ -232,6 +234,8 @@ window.avatar = {
   stopSpeaking() { env = null; s.mouth = 0; },
   flinch,
   setEmotion,
+  isLoaded: () => character?.vrm !== null,
+  debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
   resume() { if (!running) { running = true; timer.update(); frame(); } },
 };
