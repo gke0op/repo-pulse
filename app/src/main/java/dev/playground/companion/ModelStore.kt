@@ -71,7 +71,8 @@ class ModelStore(ctx: Context) {
     }
 
     /** VRM humans (Mira, Kai), served to the avatar page from here. Not bundled: they'd double the APK. */
-    fun avatarFile(name: String) = place("avatar/$name")
+    /** Kept under the pinned commit, so bumping AVATAR_BASE re-downloads instead of reusing stale files. */
+    fun avatarFile(name: String) = place("avatar/$AVATAR_REV/$name")
     fun avatarsReady() = AVATAR_MODELS.all { avatarFile(it).exists() }
     fun ensureAvatars(progress: (String, Long, Long) -> Unit) {
         for (name in AVATAR_MODELS) {
@@ -191,8 +192,10 @@ class ModelStore(ctx: Context) {
         /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
         val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3
         /** Pinned to the commit that added them, so a download can never change under us. */
+        private const val AVATAR_COMMIT = "dd7f71f300c29e67842dd9e4785d0123c7fa6c22"
+        private const val AVATAR_REV = "dd7f71f"
         private const val AVATAR_BASE =
-            "https://raw.githubusercontent.com/gke0op/repo-pulse/eca0d318898b86b61489691a8668381ecf527e55/models/avatar"
+            "https://raw.githubusercontent.com/gke0op/repo-pulse/$AVATAR_COMMIT/models/avatar"
         val AVATAR_MODELS = listOf("mira.vrm", "kai.vrm")
         private const val VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
         private const val ASR_BASE = "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26/resolve/main"

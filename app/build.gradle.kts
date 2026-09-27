@@ -12,8 +12,8 @@ android {
         applicationId = "dev.playground.companion"
         minSdk = 29
         targetSdk = 35
-        versionCode = 21
-        versionName = "0.11.2-humans"
+        versionCode = 22
+        versionName = "0.11.3-adults"
 
         ndk { abiFilters += listOf("arm64-v8a") }
 
@@ -47,6 +47,15 @@ android {
         debug {
             // Keep the debug variant fast; we ship debug-signed APKs for testing.
             isJniDebuggable = false
+        }
+    }
+
+    // Name the APK after the build (companion-0.11.3-adults-debug.apk) so installs are tellable apart.
+    applicationVariants.all {
+        val v = this
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "companion-${v.versionName}-${v.buildType.name}.apk"
         }
     }
 
