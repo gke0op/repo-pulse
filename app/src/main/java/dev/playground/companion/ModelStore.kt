@@ -126,7 +126,8 @@ class ModelStore(root: File) {
     }
 
     companion object {
-        val DEFAULT_LLM = LlmModel.QWEN25_1_5B // set from the persona eval
+        /** Persona eval (tools/host-test/persona_eval): strongest character voice of 5 candidates. */
+        val DEFAULT_LLM = LlmModel.GEMMA3_4B
 
         /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
         val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3

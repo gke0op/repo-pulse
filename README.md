@@ -3,7 +3,7 @@
 A fully local AI companion for Android: three fixed characters (a girl, a boy, a machine), 3D and voiced,
 with no server and a one-time purchase. This repo used to be Repo Pulse; that code lives at `ebf0fba`.
 
-## Status: v0.7 "two-pass ears"
+## Status: v0.8 "bigger brain"
 
 Voice conversation, all on the phone: mic → streaming ASR → LLM → chunker → TTS → audio,
 with barge-in (talk over her and she stops). Every turn records a timing and RAM trace.
@@ -12,7 +12,7 @@ with barge-in (talk over her and she stops). Every turn records a timing and RAM
 |---|---|---|
 | Ears, pass 1 | streaming Zipformer (2023-06-26, int8) + Silero VAD, call-mode mic with platform AEC | live partials, barge-in, end of turn ~0.9 s after last word |
 | Ears, pass 2 | Parakeet TDT 0.6B v2 int8 (default) or Canary 180M flash, re-transcribes each utterance | desktop, phone-degraded speech: WER 0% / 4.5% vs 29% for pass 1 |
-| LLM | llama.cpp (runtime CPU variant), Qwen2.5-1.5B-Instruct Q4_K_M | first token ~220 ms, ~22 tok/s |
+| Brain | llama.cpp (runtime CPU variant); Gemma 3 4B it Q4_K_M by default, switchable (Llama 3.2 3B, Qwen3 4B 2507, Phi-4 mini, Qwen2.5 1.5B) | persona eval picked Gemma; 1.5B measured ~220 ms first token, ~22 tok/s on phone |
 | Chunking | `SentenceChunker` | first chunk at a clause or before a conjunction |
 | Voice | Supertonic 3 (default, 2 threads); Kokoro fp32/int8 switchable | RTF 0.40, first audio ~1.0 s after Send |
 | Audio | `AudioTrack` float stream | gapless, instant flush for barge-in |

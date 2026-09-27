@@ -59,6 +59,13 @@ class SentenceChunkerTest {
         assertEquals(listOf("Tea and cake.", "Yes."), feed("Tea and cake. Yes."))
     }
 
+    @Test fun speechTextKeepsEmphasisButDropsActions() {
+        assertEquals("Are you doing alright?", SpeechText.clean("Are *you* doing alright?"))
+        assertEquals("Tell me one good thing.", SpeechText.clean("Tell me *one* good thing."))
+        assertEquals("Hi.", SpeechText.clean("*waves* Hi."))
+        assertEquals("Okay.", SpeechText.clean("Okay. *sighs deeply*"))
+    }
+
     @Test fun speechTextStripsActionsAndEmoji() {
         assertEquals("Hi there!", SpeechText.clean("*smiles* Hi there! 😊"))
         assertEquals(false, SpeechText.speakable(SpeechText.clean("*waves*")))
