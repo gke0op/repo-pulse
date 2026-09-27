@@ -83,6 +83,9 @@ class AvatarView(ctx: Context) : WebView(ctx) {
 
     fun flinch() = js("avatar.flinch()")
 
+    /** Emotion intensity profile for the human avatars: "A" (subtle) or "B" (louder). */
+    fun setProfile(p: String) = js("avatar.setProfile('$p')")
+
     fun pauseRendering() { js("avatar.pause()"); onPause() }
 
     fun resumeRendering() { onResume(); js("avatar.resume()") }

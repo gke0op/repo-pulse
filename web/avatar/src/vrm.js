@@ -5,6 +5,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 const MODELS = { girl: 'models/mira.vrm', boy: 'models/kai.vrm' };
+// Emotion A/B (avatar.setProfile): A = subtle, capped where VRoid shapes start fighting
+// blink/speech; B = louder face and body. Face weights per expression; `body` scales posture.
+const PROFILES = {
+  A: { happy: 0.6, sad: 0.85, angry: 0.38, relaxed: 0.55, surprised: 0.7, body: 1.0, talk: 0.35 },
+  B: { happy: 1.0, sad: 1.0, angry: 0.55, relaxed: 0.9, surprised: 1.0, body: 2.5, talk: 0.15 },
+};
 const RIM = new THREE.Color(0x8a5cff);        // violet rim, matches the stage glow
 const HEAD_Y = 0.35;                           // where the head sits in stage units
 const SCALE = 7.4;                             // metres -> stage units (head-and-shoulders crop)
@@ -100,7 +106,9 @@ export class VrmAvatar {
       this.wanderAt = t + 1.2 + Math.random() * 2.5;
       this.wander.set((Math.random() - 0.5) * 3.0, HEAD_Y + (Math.random() - 0.5) * 0.6, 4);
     }
-    const gazeUp = s.emo.gaze * 1.5;
+    const P = PROFILES[s.profile] || PROFILES.A;
+    const sag = s.emo.sag * P.body;
+    const gazeUp = s.emo.gaze * 1.5 * P.body;
     this.v.copy(this.wander).lerp(s.focus, clamp01(s.eyeLock));
     this.v.x += s.swirl * 2.6; this.v.y += s.swirl * 2.2 + gazeUp;
     this.target.position.lerp(this.v, 1 - Math.exp(-dt * 10));
@@ -113,17 +121,17 @@ export class VrmAvatar {
     this.headPitch += (pitch - this.headPitch) * kh;
     const flinch = s.glitch;
     const sway = Math.sin(t * 0.5) * 0.02 + Math.sin(t * 0.23) * 0.015;
-    const tilt = s.tilt + s.emo.tilt + s.swirl * 0.1 + sway;
+    const tilt = s.tilt + s.emo.tilt * P.body + s.swirl * 0.1 + sway;
     // Leaning in bends spine, chest and neck forward; the head counters it so the face stays on you.
     const counter = -s.lean * 0.14;
-    b.head.rotation.set(sx * (counter + this.headPitch * 0.6 + s.nod - flinch * 0.12 + s.emo.sag * 0.08), this.headYaw * 0.6, sx * tilt * 0.7);
+    b.head.rotation.set(sx * (counter + this.headPitch * 0.6 + s.nod - flinch * 0.12 + sag * 0.08), this.headYaw * 0.6, sx * tilt * 0.7);
     b.neck.rotation.set(sx * (this.headPitch * 0.4 + s.lean * 0.05), this.headYaw * 0.4, sx * tilt * 0.3);
 
     // ---- body: breathing, leaning in, emotional slump/lift
     const breathe = (s.breath - 1) * 1.6 + Math.sin(t * 1.3) * 0.012;
-    b.spine.rotation.set(sx * (s.lean * 0.06 + s.emo.sag * 0.05 - flinch * 0.05), sway * 0.4, 0);
+    b.spine.rotation.set(sx * (s.lean * 0.06 + sag * 0.05 - flinch * 0.05), sway * 0.4, 0);
     b.chest.rotation.set(sx * (s.lean * 0.05 - breathe * 0.6), 0, 0);
-    this._pose(breathe * 0.5 + flinch * 0.08 + Math.max(0, -s.emo.sag) * 0.03);
+    this._pose(breathe * 0.5 + flinch * 0.08 + Math.max(0, -sag) * 0.03);
 
     // ---- face: emotions derived from the blended mood (see EMOTIONS in main.js)
     const e = s.emo, a = e.amount;
@@ -132,13 +140,13 @@ export class VrmAvatar {
     const angry = clamp01(e.slant) * a;
     const surprised = clamp01((e.open - 1) / 0.6) * a;
     const relaxed = (e.gold * 0.6 + clamp01(e.smile) * 0.2) * a;
-    const talk = 1 - 0.35 * s.speech;           // keep the mouth free for words
+    const talk = 1 - P.talk * s.speech;           // keep the mouth free for words
     const set = (n, v) => { if (n) em.setValue(n, v); };
-    set(x.happy, 0.6 * happy * talk);
-    set(x.sad, 0.85 * sad * talk);
-    set(x.angry, 0.38 * angry * talk);   // VRoid's angry shuts the eyes past ~0.4
-    set(x.relaxed, 0.55 * relaxed * talk);
-    set(x.surprised, 0.7 * surprised * talk);
+    set(x.happy, P.happy * happy * talk);
+    set(x.sad, P.sad * sad * talk);
+    set(x.angry, P.angry * angry * talk);   // VRoid's angry shuts the eyes past ~0.4
+    set(x.relaxed, P.relaxed * relaxed * talk);
+    set(x.surprised, P.surprised * surprised * talk);
 
     // ---- blinks: natural rhythm, doubles now and then, slow while thinking; none through a smile
     if (this.blinkT < 0 && (t > this.blinkAt || this.blinkQueue > 0)) {

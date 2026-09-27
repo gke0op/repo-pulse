@@ -23,6 +23,7 @@ import android.widget.Toast
 import android.Manifest
 import android.app.AlertDialog
 import dev.playground.companion.engine.AsrEngine
+import dev.playground.companion.engine.Emotion
 import dev.playground.companion.engine.Ears
 import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.Transcriber
@@ -97,6 +98,7 @@ class MainActivity : Activity(), Pipeline.Listener {
 
         avatar = AvatarView(this)
         root.addView(avatar, LinearLayout.LayoutParams(-1, 0, 2.2f))
+        root.addView(feelingsStrip())
 
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
@@ -154,6 +156,46 @@ class MainActivity : Activity(), Pipeline.Listener {
         }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(tools)
         return root
+    }
+
+    /**
+     * Test strip for how feelings read on the avatar: A/B intensity profile, each emotion,
+     * and "talk" (fake lip-sync) to feel an emotion while speaking. Persists the profile.
+     */
+    private fun feelingsStrip(): View {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun chip(text: String, onClick: (Button) -> Unit) = Button(this).apply {
+            this.text = text
+            isAllCaps = false
+            textSize = 12f
+            minWidth = 0; minimumWidth = 0
+            setOnClickListener { onClick(this) }
+            row.addView(this)
+        }
+        var profile = prefs.getString(PREF_PROFILE, "A") ?: "A"
+        avatar.setProfile(profile)
+        chip("Profile $profile") { b ->
+            profile = if (profile == "A") "B" else "A"
+            prefs.edit().putString(PREF_PROFILE, profile).apply()
+            avatar.setProfile(profile)
+            b.text = "Profile $profile"
+        }
+        Emotion.entries.forEach { e -> chip(e.tag) { avatar.setEmotion(e.tag) } }
+        chip("talk") { talkTest() }
+        return android.widget.HorizontalScrollView(this).apply { addView(row) }
+    }
+
+    /** ~3 s of syllable-like mouth movement, then back to idle (as a real reply would). */
+    private fun talkTest() {
+        if (avatar.state != "idle") return
+        val frames = 150
+        val env = FloatArray(frames) { i ->
+            val syllable = 0.5f + 0.5f * kotlin.math.sin(i * 0.55f)
+            val word = if ((i / 18) % 4 == 3) 0.15f else 1f          // short pauses between words
+            (syllable * word * 0.9f).coerceIn(0f, 1f)
+        }
+        avatar.speak(env, 20, 0)
+        avatar.postDelayed({ if (avatar.state == "speaking") avatar.setState("idle") }, frames * 20L + 200)
     }
 
     private fun label(size: Float, color: Int) = TextView(this).apply {
@@ -492,6 +534,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         const val PREF_VOICE = "voice_engine"
         const val REQ_MIC = 1
         const val PREF_ASR = "asr_engine"
+        const val PREF_PROFILE = "emotion_profile"
         const val PREF_LLM = "llm_model"
         const val LISTEN_TIMEOUT_MS = 1500L
         // Rough output latency so the mouth moves with the sound, not before it (tune by eye).

@@ -7,6 +7,7 @@
 //   avatar.stopSpeaking()
 //   avatar.flinch()                                          // interrupted / startled
 //   avatar.setEmotion('calm'|'happy'|'sad'|'angry'|'surprised'|'curious'|'tender')
+//   avatar.setProfile('A' | 'B')                            // emotion intensity A/B (humans)
 //   avatar.pause() / avatar.resume()
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
@@ -74,6 +75,7 @@ const KEYS = ['ripple', 'lean', 'unrest', 'swirl', 'eyeLock', 'dilate', 'pulse',
 const s = {
   t: 0, breath: 1, speech: 0, mouth: 0, glitch: 0, nod: 0, tilt: 0,
   focus: new THREE.Vector3(0, 0.1, 7), glowColor: new THREE.Color(0x7fffe0),
+  profile: 'A',   // emotion intensity profile for the humans (A/B test), see vrm.js
 };
 const target = {};
 let stateName = 'idle';
@@ -234,6 +236,7 @@ window.avatar = {
   stopSpeaking() { env = null; s.mouth = 0; },
   flinch,
   setEmotion,
+  setProfile(p) { s.profile = p === 'B' ? 'B' : 'A'; },
   isLoaded: () => character?.vrm !== null,
   debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
@@ -243,5 +246,6 @@ window.avatar = {
 setCharacter(params.get('char') || 'machine');
 if (params.get('state')) window.avatar.setState(params.get('state'));
 if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
+if (params.get('profile')) window.avatar.setProfile(params.get('profile'));
 frame();
 window.AndroidAvatar?.onReady();

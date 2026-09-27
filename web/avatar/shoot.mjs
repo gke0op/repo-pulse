@@ -38,17 +38,18 @@ const shots = [
   ...['girl', 'boy'].flatMap(c => [
     [c, 'idle', null], [c, 'listening', null], [c, 'thinking', null], [c, 'speaking', 'speak'],
     ...['happy', 'sad', 'angry', 'surprised', 'curious', 'tender'].map(e => [c, 'idle', null, e]),
+    ...['happy', 'sad', 'angry', 'surprised', 'curious', 'tender'].map(e => [c, 'idle', null, e, 'B']),
   ]),
 ];
-for (const [char, state, action, emo] of shots) {
-  await page.goto(`${page_url}?char=${char}&state=${state}&t=7${emo ? `&emo=${emo}` : ''}`);
+for (const [char, state, action, emo, profile] of shots) {
+  await page.goto(`${page_url}?char=${char}&state=${state}&t=7${emo ? `&emo=${emo}` : ''}${profile ? `&profile=${profile}` : ''}`);
   await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });
   await page.waitForTimeout(2500); // let the state blend settle
   if (action === 'speak') {
     await page.evaluate(() => avatar.speak(Array.from({ length: 200 }, (_, i) => 0.5 + 0.5 * Math.sin(i * 0.4)), 20, 0));
     await page.waitForTimeout(430);
   }
-  const file = path.join(out, `avatar-${char}-${state}${emo ? '-' + emo : ''}.png`);
+  const file = path.join(out, `avatar-${char}-${state}${emo ? '-' + emo : ''}${profile ? '-' + profile : ''}.png`);
   await page.screenshot({ path: file });
   console.log('shot', file);
 }
