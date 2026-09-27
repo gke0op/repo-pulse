@@ -19,10 +19,12 @@ object NativeLlm {
     external fun init(nativeLibDir: String)
     external fun load(path: String, nCtx: Int, nThreads: Int): Boolean
     external fun setSystem(prompt: String): Boolean
-    private external fun reply(user: String, maxTokens: Int, sink: PieceSink): DoubleArray
+    private external fun reply(user: String, maxTokens: Int, prefix: String, sink: PieceSink): DoubleArray
     external fun cancel()
     external fun unload()
     external fun systemInfo(): String
 
-    fun replyStreaming(user: String, maxTokens: Int, sink: PieceSink) = Stats(reply(user, maxTokens, sink))
+    /** [prefix] starts the reply for the model (prefill); it is streamed back as the first piece. */
+    fun replyStreaming(user: String, maxTokens: Int, prefix: String, sink: PieceSink) =
+        Stats(reply(user, maxTokens, prefix, sink))
 }

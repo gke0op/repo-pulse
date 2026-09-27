@@ -6,6 +6,7 @@
 //   avatar.speak(envelope: number[0..1], frameMs, delayMs)   // lip-sync for one audio chunk
 //   avatar.stopSpeaking()
 //   avatar.flinch()                                          // interrupted / startled
+//   avatar.setEmotion('calm'|'happy'|'sad'|'angry'|'surprised'|'curious'|'tender')
 //   avatar.pause() / avatar.resume()
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
@@ -75,6 +76,37 @@ const s = {
 };
 const target = {};
 let stateName = 'idle';
+
+// ---- emotions (from the brain's tags) ----------------------------------------------
+// glow: mask light; smile/brow/slant: mask shape; open: eye-slit openness; gold: kintsugi glow;
+// vein/veinMix: vein color; energy: agitation; sag: + droop / - puff; gaze: + up / - down;
+// dilate: pupils; tilt: head tilt; mouthOpen: jaw drop.
+const E = (glow, o) => ({ glow, smile: 0, brow: 0, slant: 0, open: 1, gold: 0, vein: 0x7fffd4, veinMix: 0,
+  energy: 0, sag: 0, gaze: 0, dilate: 0, tilt: 0, mouthOpen: 0, amount: 0.8, ...o });
+const EMOTIONS = {
+  calm:      E(0x7fffe0, { amount: 0 }),
+  happy:     E(0xfff0b0, { smile: 0.8, brow: 0.7, open: 0.8, gold: 0.15, vein: 0x9fffe0, veinMix: 0.5, energy: 0.35, sag: -0.35, gaze: 0.15, dilate: 0.3 }),
+  sad:       E(0x7f9fff, { smile: -0.7, brow: -0.3, slant: -0.7, open: 0.6, vein: 0x5040ff, veinMix: 0.7, sag: 1.0, gaze: -0.8, dilate: 0.2 }),
+  angry:     E(0xff5040, { smile: -0.4, slant: 1.0, open: 0.55, vein: 0xff2030, veinMix: 0.9, energy: 1.0, sag: -0.2, dilate: -0.4 }),
+  surprised: E(0xffffff, { open: 1.6, vein: 0xffffff, veinMix: 0.4, energy: 0.6, sag: -0.6, gaze: 0.1, dilate: -0.8, mouthOpen: 0.35 }),
+  curious:   E(0x80ffb0, { smile: 0.15, brow: 0.2, open: 1.15, vein: 0x80ffb0, veinMix: 0.5, energy: 0.3, dilate: 0.7, tilt: 0.12 }),
+  tender:    E(0xffc890, { smile: 0.45, brow: 0.35, open: 0.75, gold: 1.0, vein: 0xffa860, veinMix: 0.8, energy: 0.1, sag: 0.15, dilate: 0.5 }),
+};
+const EMO_KEYS = ['smile', 'brow', 'slant', 'open', 'gold', 'veinMix', 'energy', 'sag', 'gaze', 'dilate', 'tilt', 'mouthOpen', 'amount'];
+s.emo = { ...EMOTIONS.calm, glow: new THREE.Color(EMOTIONS.calm.glow), vein: new THREE.Color(EMOTIONS.calm.vein) };
+let emoTarget = EMOTIONS.calm, emoName = 'calm';
+const emoGlow = new THREE.Color(), emoVein = new THREE.Color(), mixedGlow = new THREE.Color();
+let calmAt = 0;   // when idle, drift back to calm at this time
+
+function setEmotion(name) {
+  const next = EMOTIONS[name];
+  if (!next || name === emoName) return;
+  emoName = name;
+  emoTarget = next;
+  emoGlow.set(next.glow);
+  emoVein.set(next.vein);
+  if (name === 'surprised') { character?.blinkCascade(); s.breath = 1.05; }
+}
 function applyState(name) {
   const row = STATES[name] || STATES.idle;
   KEYS.forEach((k, i) => { target[k] = row[i]; if (s[k] === undefined) s[k] = row[i]; });
@@ -158,7 +190,13 @@ function frame() {
 
   const k = 1 - Math.exp(-dt * 6.0);
   for (const key of KEYS) s[key] += (target[key] - s[key]) * k;
-  s.glowColor.lerp(target.glow, k);
+  // Emotions blend a little slower than states, so feelings read as moods, not twitches.
+  const ke = 1 - Math.exp(-dt * 4.0);
+  for (const key of EMO_KEYS) s.emo[key] += (emoTarget[key] - s.emo[key]) * ke;
+  s.emo.glow.lerp(emoGlow, ke);
+  s.emo.vein.lerp(emoVein, ke);
+  if (calmAt && now > calmAt) { calmAt = 0; setEmotion('calm'); }
+  s.glowColor.lerp(mixedGlow.copy(target.glow).lerp(s.emo.glow, s.emo.amount), k);
 
   const e = envelopeNow(now);
   s.mouth += (e - s.mouth) * (1 - Math.exp(-dt * (e > s.mouth ? 28 : 10)));
@@ -184,6 +222,8 @@ window.avatar = {
   setCharacter,
   setState(name) {
     if (name === stateName) return;
+    // Feelings outlast the reply a little, then settle.
+    calmAt = name === 'idle' ? performance.now() + 6000 : 0;
     const wasThinking = stateName === 'thinking';
     applyState(name);
     if (name === 'listening' || wasThinking) character?.blinkCascade();
@@ -191,11 +231,13 @@ window.avatar = {
   speak,
   stopSpeaking() { env = null; s.mouth = 0; },
   flinch,
+  setEmotion,
   pause() { running = false; },
   resume() { if (!running) { running = true; timer.update(); frame(); } },
 };
 
 setCharacter(params.get('char') || 'machine');
 if (params.get('state')) window.avatar.setState(params.get('state'));
+if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
 frame();
 window.AndroidAvatar?.onReady();

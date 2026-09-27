@@ -55,6 +55,8 @@ float lobes(vec3 n, float t, float ripple) {
 // Oil-slick skin shared by body and tendrils: near-black and wet, iridescent only at
 // grazing angles, with rare thin veins of light that brighten with [pulse].
 export const SKIN_GLSL = /* glsl */ `
+uniform vec3 uVeinTint;   // emotion color for the veins
+uniform float uVeinMix;   // 0 = natural teal/violet, 1 = fully tinted
 vec3 skin(vec3 N, vec3 V, vec3 p, float t, float pulse) {
   vec3 L = normalize(vec3(0.45, 0.85, 0.55));
   float ndv = max(dot(N, V), 0.0);
@@ -72,6 +74,7 @@ vec3 skin(vec3 N, vec3 V, vec3 p, float t, float pulse) {
   float ridge = pow(1.0 - abs(gnoise(p * 2.6 + vec3(0.0, 0.0, t * 0.03))), 48.0);
   float where = smoothstep(0.05, 0.35, gnoise(p * 0.9 + vec3(7.1)));
   vec3 vein = mix(vec3(0.05, 0.9, 0.8), vec3(0.6, 0.25, 1.0), 0.5 + 0.5 * sin(t * 0.3 + p.y * 2.0));
+  vein = mix(vein, uVeinTint, uVeinMix);
   col += vein * ridge * where * (0.25 + 2.2 * pulse);
   return col;
 }

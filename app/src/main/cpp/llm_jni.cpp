@@ -42,7 +42,7 @@ Java_dev_playground_companion_engine_NativeLlm_setSystem(JNIEnv * env, jobject, 
 // Streams UTF-8 pieces to sink.onPiece(byte[]): Boolean. Returns
 // [promptTokens, prefillMs, genTokens, genMs, rebuilt, cancelled].
 JNIEXPORT jdoubleArray JNICALL
-Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstring user, jint max_tokens, jobject sink) {
+Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstring user, jint max_tokens, jstring prefix, jobject sink) {
     jclass    cls       = env->GetObjectClass(sink);
     jmethodID on_piece  = env->GetMethodID(cls, "onPiece", "([B)Z");
 
@@ -55,7 +55,7 @@ Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstr
         env->DeleteLocalRef(arr);
         if (env->ExceptionCheck()) { env->ExceptionClear(); return false; }
         return keep == JNI_TRUE;
-    }, st);
+    }, st, to_std(env, prefix));
 
     const jdouble vals[6] = { (double) st.prompt_tokens, st.prefill_ms, (double) st.gen_tokens, st.gen_ms,
                               st.rebuilt ? 1.0 : 0.0, st.cancelled ? 1.0 : 0.0 };

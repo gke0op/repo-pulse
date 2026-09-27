@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
 import dev.playground.companion.engine.EchoGuard
+import dev.playground.companion.engine.Emotion
+import dev.playground.companion.engine.EmotionTagStream
 import dev.playground.companion.engine.Envelope
 import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.MemProbe
@@ -45,6 +47,8 @@ class Pipeline(
         fun onSpeechChunk(envelope: FloatArray, frameMs: Int) {}
         /** The character was cut off mid-reply. */
         fun onInterrupted() {}
+        /** The character's feeling, from the brain's emotion tags; timed to the speech it belongs to. */
+        fun onEmotion(emotion: Emotion) {}
     }
 
     private val llmExec = Executors.newSingleThreadExecutor { Thread(it, "llm") }
@@ -60,7 +64,7 @@ class Pipeline(
     var loadReport = ""; private set
 
     private sealed class TtsJob(val turn: Int) {
-        class Speak(turn: Int, val text: String, val trace: TurnTrace) : TtsJob(turn)
+        class Speak(turn: Int, val text: String, val trace: TurnTrace, val emotion: Emotion?) : TtsJob(turn)
         class End(turn: Int, val trace: TurnTrace) : TtsJob(turn)
     }
 
@@ -229,18 +233,35 @@ class Pipeline(
             if (turn != currentTurn) return@execute
             trace.memBefore = MemProbe.read(ctx)
             val chunker = SentenceChunker()
+            val tags = EmotionTagStream()
+            var feeling: Emotion? = null
             fun emit(chunk: String) {
                 if (trace.firstChunkAt == 0L) { trace.firstChunkAt = now(); trace.firstChunkText = chunk }
-                ttsQueue.put(TtsJob.Speak(turn, chunk, trace))
+                ttsQueue.put(TtsJob.Speak(turn, chunk, trace, feeling))
             }
-            val stats = NativeLlm.replyStreaming(text, MAX_REPLY_TOKENS) { bytes ->
-                if (trace.firstPieceAt == 0L) trace.firstPieceAt = now()
-                val piece = String(bytes, Charsets.UTF_8)
-                if (turn == currentTurn) replySoFar.append(piece)
-                ui.onReplyText(turn, piece)
-                chunker.push(piece).forEach(::emit)
+            fun spoken(text: String) {
+                if (turn == currentTurn) replySoFar.append(text)
+                ui.onReplyText(turn, text)
+                chunker.push(text).forEach(::emit)
+            }
+            // Prefill "[" so every brain opens with an emotion tag (Llama 3.2 ignores the instruction otherwise).
+            var prefilled = false
+            val stats = NativeLlm.replyStreaming(text, MAX_REPLY_TOKENS, "[") { bytes ->
+                // The first callback is our own prefilled "[", not a generated token.
+                if (!prefilled) prefilled = true else if (trace.firstPieceAt == 0L) trace.firstPieceAt = now()
+                for (part in tags.push(String(bytes, Charsets.UTF_8))) when (part) {
+                    is EmotionTagStream.Part.Text -> spoken(part.text)
+                    is EmotionTagStream.Part.Tag -> part.emotion?.let { e ->
+                        // The first feeling shows at once (people react before they speak);
+                        // later ones travel with their chunk and show when it plays.
+                        if (trace.emotions.isEmpty()) ui.onEmotion(e)
+                        trace.emotions += e
+                        feeling = e
+                    }
+                }
                 turn == currentTurn
             }
+            tags.flush()?.let(::spoken)
             chunker.flush()?.let(::emit)
             trace.llm = stats
             trace.llmDoneAt = now()
@@ -311,7 +332,10 @@ class Pipeline(
                         val env = Envelope.of(samples, v.sampleRate, ENVELOPE_FRAME_MS)
                         audio.enqueue(samples, onStart = {
                             if (job.trace.firstAudioAt == 0L) job.trace.firstAudioAt = now()
-                            if (job.turn == currentTurn) ui.onSpeechChunk(env, ENVELOPE_FRAME_MS)
+                            if (job.turn == currentTurn) {
+                                job.emotion?.let(ui::onEmotion)
+                                ui.onSpeechChunk(env, ENVELOPE_FRAME_MS)
+                            }
                         })
                     }
                 }
@@ -354,6 +378,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var memBefore: MemProbe.Snapshot? = null
     @Volatile var memAfter: MemProbe.Snapshot? = null
     val chunks: MutableList<Chunk> = java.util.Collections.synchronizedList(mutableListOf())
+    val emotions: MutableList<Emotion> = java.util.Collections.synchronizedList(mutableListOf())
 
     private fun rel(t: Long) = if (t == 0L) "—" else "${t - t0} ms"
 
@@ -380,6 +405,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
             (if (audio > 0) " (RTF ${"%.2f".format(synth.toDouble() / audio)})" else "") +
             (if (first != null) ", first chunk synth ${first.synthMs} ms" else ""))
         appendLine("  total       : ${rel(doneAt)}")
+        if (emotions.isNotEmpty()) appendLine("  feeling     : ${emotions.joinToString(" -> ") { it.tag }}")
         val a = memAfter
         if (a != null) append("  RAM         : rss ${a.rssMb} MB, peak ${a.peakRssMb} MB | avail ${a.availMb}/${a.totalMb} MB${if (a.lowMemory) " LOW" else ""}")
     }

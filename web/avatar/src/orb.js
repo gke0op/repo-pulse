@@ -74,10 +74,13 @@ export class Orb {
   }
 
   update(s) {
+    // Emotions tint the orb toward their glow color and liven or calm it.
+    this._base = this._base || this.u.uColA.value.clone();
+    this.u.uColA.value.copy(this._base).lerp(s.emo.glow, 0.55 * s.emo.amount);
     this.u.uTime.value = s.t;
     this.u.uSwirl.value = s.swirl;
-    this.u.uEnergy.value = 0.15 + 0.35 * s.eyeLock * s.lean + 0.9 * s.speech + 0.3 * s.swirl;
-    const k = s.breath * (1 + 0.06 * s.speech + 0.03 * s.lean);
+    this.u.uEnergy.value = 0.15 + 0.35 * s.eyeLock * s.lean + 0.9 * s.speech + 0.3 * s.swirl + 0.4 * s.emo.energy;
+    const k = s.breath * (1 + 0.06 * s.speech + 0.03 * s.lean - 0.05 * s.emo.sag);
     this.sphere.scale.setScalar(k);
     this.group.position.y = 0.1 + Math.sin(s.t * 0.8) * 0.04;
   }

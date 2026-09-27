@@ -182,12 +182,18 @@ void main() {
 
 const MASK_FRAG = /* glsl */ `
 ${NOISE_GLSL}
-uniform float uMouth, uOpen, uTime, uGlitch, uGold;
+uniform float uMouth, uOpen, uTime, uGlitch, uGold, uSmile, uBrow, uSlant;
 uniform vec3 uGlowCol;
 varying vec2 vUv2;
 varying vec3 vNormalW, vWorldPos;
 
-float slit(vec2 p, vec2 c, vec2 r) { return length((p - c) / r); }
+// One eye slit. side = +1 left eye, -1 right (its inner end points at the other eye).
+float eyeSlit(vec2 p, vec2 c, float side) {
+  vec2 q = p - c;
+  q.y += uSlant * 0.35 * q.x * side;                      // + angry: inner ends down; - sad: inner ends up
+  q.y -= uBrow * 0.028 * (1.0 - pow(q.x / 0.10, 2.0));    // + arched like ^ (happy), - drooping
+  return length(q / vec2(0.10, 0.022 * uOpen + 0.002));
+}
 
 void main() {
   vec2 p = vUv2;
@@ -210,11 +216,12 @@ void main() {
   col = mix(col, goldCol * (0.55 + 0.45 * pow(max(dot(N, normalize(L + V)), 0.0), 8.0)), gold);
   col += goldCol * exp(-seam * 90.0) * step(-0.46, p.y) * step(p.y, 0.5) * uGold * 0.35;
   col += pow(max(dot(N, normalize(L + V)), 0.0), 60.0) * 0.35;        // glaze
-  float eyes = min(slit(p, vec2(-0.15, 0.10), vec2(0.10, 0.022 * uOpen + 0.002)),
-                   slit(p, vec2( 0.15, 0.10), vec2(0.10, 0.022 * uOpen + 0.002)));
+  float eyes = min(eyeSlit(p, vec2(-0.15, 0.10), 1.0), eyeSlit(p, vec2(0.15, 0.10), -1.0));
+  vec2 mp = p;
+  mp.y -= uSmile * 0.035 * pow(clamp(abs(p.x) / 0.13, 0.0, 1.0), 2.0);   // corners up = smile
   float mouthH = 0.006 + uMouth * 0.07;
   float rr = min(0.02, mouthH);
-  vec2 m = abs(p - vec2(0.0, -0.22)) - vec2(0.13, mouthH) + rr;
+  vec2 m = abs(mp - vec2(0.0, -0.22)) - vec2(0.13, mouthH) + rr;
   float mouth = length(max(m, 0.0)) + min(max(m.x, m.y), 0.0) - rr;   // rounded rect
   float cut = min(eyes - 1.0, mouth * 25.0);
   col = mix(col, vec3(0.02), smoothstep(0.02, -0.02, cut));
@@ -233,6 +240,7 @@ export class Shoggoth {
     this.u = {
       uTime: { value: 0 }, uRipple: { value: 0 }, uLean: { value: 0 }, uBreath: { value: 1 },
       uSpeech: { value: 0 }, uPulse: { value: 0.2 },
+      uVeinTint: { value: new THREE.Color(0x7fffd4) }, uVeinMix: { value: 0 },
     };
     this.body = new THREE.Mesh(
       new THREE.IcosahedronGeometry(1, 40),
@@ -246,6 +254,7 @@ export class Shoggoth {
     for (let i = 0; i < N_TENDRILS; i++) {
       const u = {
         uTime: this.u.uTime, uPulse: this.u.uPulse, uUnrest: { value: 0 },
+        uVeinTint: this.u.uVeinTint, uVeinMix: this.u.uVeinMix,
         uPhase: { value: i * 1.7 }, uLen: { value: 2.0 }, uCurl: { value: 1.0 },
       };
       const mesh = new THREE.Mesh(tendrilGeo, new THREE.ShaderMaterial({
@@ -280,6 +289,7 @@ export class Shoggoth {
     this.maskU = {
       uMouth: { value: 0 }, uOpen: { value: 1 }, uTime: this.u.uTime, uGlitch: { value: 0 },
       uGlowCol: { value: new THREE.Color(0x7fffe0) }, uGold: { value: 0.2 },
+      uSmile: { value: 0 }, uBrow: { value: 0 }, uSlant: { value: 0 },
     };
     this.mask = new THREE.Mesh(
       new THREE.PlaneGeometry(0.9, 1.14, 40, 48),
@@ -300,7 +310,11 @@ export class Shoggoth {
 
   update(s, dt) {
     // Lean in when listening: tip the whole creature toward you, so mask and flesh move as one.
+    const emo = s.emo;
     this.group.rotation.x = s.lean * 0.14;
+    // Sad sags (shorter, wider, lower); surprise and joy puff up.
+    this.group.scale.set(1 + 0.03 * emo.sag, 1 - 0.07 * emo.sag, 1 + 0.03 * emo.sag);
+    this.group.position.y = 0.25 - 0.08 * emo.sag;
     this.group.position.z = s.lean * 0.12;
     const u = this.u;
     u.uTime.value = s.t;
@@ -308,8 +322,10 @@ export class Shoggoth {
     u.uLean.value = s.lean;
     u.uBreath.value = s.breath;
     u.uSpeech.value = s.speech;
-    u.uPulse.value = s.pulse;
-    for (const tu of this.tendrils) tu.uUnrest.value = s.unrest;
+    u.uPulse.value = s.pulse + 0.4 * emo.energy;
+    u.uVeinTint.value.copy(emo.vein);
+    u.uVeinMix.value = emo.veinMix;
+    for (const tu of this.tendrils) tu.uUnrest.value = s.unrest + emo.energy;
 
     // Eyes ride the surface and look at: their own wandering target, you, or a swirl while thinking.
     for (const e of this.eyes) {
@@ -323,6 +339,7 @@ export class Shoggoth {
       }
       const target = this._target || (this._target = new THREE.Vector3());
       target.copy(e.wander).lerp(s.focus, s.eyeLock);
+      target.y += s.emo.gaze * 2.2;                                  // sad eyes drop, happy lift
       if (s.swirl > 0.01) {
         const a = s.t * 2.2 + e.phase;
         target.x += Math.cos(a) * 2.5 * s.swirl;
@@ -337,11 +354,10 @@ export class Shoggoth {
       e.blink = Math.max(0, e.blink - dt * 7);
       const open = e.blink > 0 ? 1 - Math.sin(Math.PI * (1 - e.blink)) : 1;
       e.mesh.scale.set(e.size, e.size * (0.08 + 0.92 * open), e.size);
-      e.u.uPupil.value = 0.16 + 0.09 * s.dilate;
+      e.u.uPupil.value = THREE.MathUtils.clamp(0.16 + 0.09 * s.dilate + 0.06 * s.emo.dilate, 0.08, 0.3);
       e.u.uGlow.value = 0.25 + 0.6 * s.pulse;
     }
 
-    // The mask floats in front of the mass and turns partly toward what it attends to.
     // Seated on the calm face socket, just proud of the surface.
     const front = this.surfacePoint(FACE_DIR, s, new THREE.Vector3()).addScaledVector(FACE_DIR, 0.05);
     // Float clear of the surface: the bulges can swell ~0.3 past the mean radius.
@@ -350,11 +366,14 @@ export class Shoggoth {
     // Small turns only: a seated mask that swivels far would open gaps at its edges.
     this.mask.rotation.y = THREE.MathUtils.lerp(this.mask.rotation.y, Math.atan2(look.x, 6) * 0.12, 0.08);
     this.mask.rotation.x = THREE.MathUtils.lerp(this.mask.rotation.x, -Math.atan2(look.y - 0.25, 6) * 0.12 - 0.15 + s.nod * 0.5, 0.08);
-    this.mask.rotation.z = Math.sin(s.t * 0.5) * 0.03 + s.tilt;
-    this.maskU.uMouth.value = s.mouth;
-    this.maskU.uOpen.value = s.maskEyes;
+    this.mask.rotation.z = Math.sin(s.t * 0.5) * 0.03 + s.tilt + emo.tilt;
+    this.maskU.uMouth.value = Math.min(1.2, s.mouth + emo.mouthOpen);
+    this.maskU.uOpen.value = s.maskEyes * emo.open;
+    this.maskU.uSmile.value = emo.smile;
+    this.maskU.uBrow.value = emo.brow;
+    this.maskU.uSlant.value = emo.slant;
     this.maskU.uGlitch.value = s.glitch;
-    this.maskU.uGold.value = 0.15 + 0.9 * s.speech + 0.4 * s.pulse;
+    this.maskU.uGold.value = 0.15 + 0.9 * s.speech + 0.4 * s.pulse + 2.2 * emo.gold;   // tender: the mend glows
     this.maskU.uGlowCol.value.copy(s.glowColor);
   }
 

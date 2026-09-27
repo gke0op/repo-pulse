@@ -56,6 +56,9 @@ class AvatarView(ctx: Context) : WebView(ctx) {
 
     fun stopSpeaking() = js("avatar.stopSpeaking()")
 
+    /** calm | happy | sad | angry | surprised | curious | tender */
+    fun setEmotion(tag: String) = js("avatar.setEmotion('$tag')")
+
     fun flinch() = js("avatar.flinch()")
 
     fun pauseRendering() { js("avatar.pause()"); onPause() }

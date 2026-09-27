@@ -37,8 +37,12 @@ public:
 
     // Appends a user message and streams the assistant reply through on_piece.
     // Returns the full reply text (partial if cancelled).
+    // [prefix] is placed at the start of the assistant turn and the model continues from it
+    // ("prefilling"), e.g. "[" to make any model open its reply with an emotion tag. The
+    // prefix is part of the returned text and is streamed first.
     std::string reply(const std::string & user_text, int max_tokens,
-                      const PieceFn & on_piece, LlmTurnStats & stats);
+                      const PieceFn & on_piece, LlmTurnStats & stats,
+                      const std::string & prefix = "");
 
     void cancel() { cancel_.store(true); }
 

@@ -10,19 +10,20 @@
 static std::string slurp(const char * p) { std::ifstream f(p); std::stringstream s; s << f.rdbuf(); return s.str(); }
 
 int main(int argc, char ** argv) {
-    if (argc < 4) { std::fprintf(stderr, "usage: %s model.gguf system.txt turns.txt\n", argv[0]); return 2; }
+    if (argc < 4) { std::fprintf(stderr, "usage: %s model.gguf system.txt turns.txt [assistant-prefix]\n", argv[0]); return 2; }
     llama_backend_init();
     llama_log_set([](ggml_log_level, const char *, void *) {}, nullptr);
     LlmEngine eng;
     if (!eng.load(argv[1], 2048, 4)) { std::fprintf(stderr, "load failed\n"); return 1; }
     if (!eng.set_system(slurp(argv[2]))) { std::fprintf(stderr, "system failed\n"); return 1; }
+    const std::string prefix = argc > 4 ? argv[4] : "";
     std::ifstream turns(argv[3]);
     std::string line;
     double gen_tok = 0, gen_ms = 0, first_ms = 0; int n = 0;
     while (std::getline(turns, line)) {
         if (line.empty()) continue;
         LlmTurnStats st;
-        std::string r = eng.reply(line, 160, [](const std::string &) { return true; }, st);
+        std::string r = eng.reply(line, 160, [](const std::string &) { return true; }, st, prefix);
         std::printf("  U: %s\n  A: %s\n", line.c_str(), r.c_str());
         gen_tok += st.gen_tokens; gen_ms += st.gen_ms; first_ms += st.prefill_ms; n++;
     }

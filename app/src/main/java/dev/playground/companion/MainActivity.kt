@@ -443,6 +443,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         pipeline.select(c)
         avatar.setCharacter(c.id)
         avatar.setState("idle")
+        avatar.setEmotion("calm")
         transcript.append("\n— now talking to ${c.name} —\n")
         highlight()
     }
@@ -466,6 +467,8 @@ class MainActivity : Activity(), Pipeline.Listener {
     }
 
     override fun onThinking() = runOnUiThread { avatar.setState("thinking") }
+
+    override fun onEmotion(emotion: dev.playground.companion.engine.Emotion) = runOnUiThread { avatar.setEmotion(emotion.tag) }
 
     override fun onSpeechChunk(envelope: FloatArray, frameMs: Int) = runOnUiThread {
         avatar.speak(envelope, frameMs, if (micOn) CALL_AUDIO_DELAY_MS else MEDIA_AUDIO_DELAY_MS)

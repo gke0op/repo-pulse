@@ -123,7 +123,8 @@ bool LlmEngine::decode_from(const std::vector<llama_token> & tokens, size_t star
 }
 
 std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
-                             const PieceFn & on_piece, LlmTurnStats & stats) {
+                             const PieceFn & on_piece, LlmTurnStats & stats,
+                             const std::string & prefix) {
     stats = {};
     cancel_.store(false);
     if (!ctx_ || msgs_.empty()) return "";
@@ -144,15 +145,20 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
         stats.rebuilt = true;
         prompt = render(true);
     }
+    if (!prefix.empty()) {
+        const auto pre = common_tokenize(ctx_, prefix, /*add_special*/ false, /*parse_special*/ false);
+        prompt.insert(prompt.end(), pre.begin(), pre.end());
+    }
     if ((int) prompt.size() >= n_ctx_) return "";
     if (!sync_kv(prompt, stats)) return "";
 
     const llama_vocab * vocab = llama_model_get_vocab(model_);
     common_sampler_reset(sampler_);
 
-    std::string reply_text, pending;
+    std::string reply_text = prefix, pending;
+    if (!prefix.empty() && !on_piece(prefix)) { stats.cancelled = true; }
     const double t0 = now_ms();
-    for (int i = 0; i < max_tokens; ++i) {
+    for (int i = 0; i < max_tokens && !stats.cancelled; ++i) {
         if (cancel_.load()) { stats.cancelled = true; break; }
         if ((int) kv_tokens_.size() >= n_ctx_) break;
 

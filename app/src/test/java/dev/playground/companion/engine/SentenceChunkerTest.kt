@@ -64,6 +64,8 @@ class SentenceChunkerTest {
         assertEquals("Tell me one good thing.", SpeechText.clean("Tell me *one* good thing."))
         assertEquals("Hi.", SpeechText.clean("*waves* Hi."))
         assertEquals("Okay.", SpeechText.clean("Okay. *sighs deeply*"))
+        assertEquals("Hi there.", SpeechText.clean("[Happy] Hi there."))
+        assertEquals("Item 1 stays.", SpeechText.clean("Item [1] stays."))  // brackets are markdown to the voice
     }
 
     @Test fun speechTextStripsActionsAndEmoji() {

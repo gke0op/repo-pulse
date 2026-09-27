@@ -12,8 +12,8 @@ android {
         applicationId = "dev.playground.companion"
         minSdk = 29
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.9.1-face"
+        versionCode = 17
+        versionName = "0.10-feelings"
 
         ndk { abiFilters += listOf("arm64-v8a") }
 

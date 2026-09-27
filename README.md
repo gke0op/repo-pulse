@@ -3,7 +3,7 @@
 A fully local AI companion for Android: three fixed characters (a girl, a boy, a machine), 3D and voiced,
 with no server and a one-time purchase. This repo used to be Repo Pulse; that code lives at `ebf0fba`.
 
-## Status: v0.9 "face"
+## Status: v0.10 "feelings"
 
 Voice conversation, all on the phone: mic → streaming ASR → LLM → chunker → TTS → audio,
 with barge-in (talk over her and she stops). Every turn records a timing and RAM trace.
@@ -17,6 +17,7 @@ with barge-in (talk over her and she stops). Every turn records a timing and RAM
 | Voice | Supertonic 3 (default, 2 threads); Kokoro fp32/int8 switchable | RTF 0.40, first audio ~1.0 s after Send |
 | Audio | `AudioTrack` float stream | gapless, instant flush for barge-in |
 | Face | three.js in a WebView, fully procedural (`web/avatar`): Unit Seven is a shoggoth behind a kintsugi mask; Mira and Kai are placeholder plasma orbs | idle / listening / thinking / speaking, lip-sync from a 20 ms loudness envelope, eyes follow touch |
+| Feelings | the brain opens each reply with an emotion tag (prefilled `[`), parsed out of the stream (`EmotionTagStream`) and timed to the chunk it belongs to | 7 feelings: calm, happy, sad, angry, surprised, curious, tender; desktop: Gemma 12/12 tagged, prefill makes any brain comply |
 
 Characters: Mira, Kai, Unit Seven (robot filter). Voices download on demand; the choice is remembered.
 

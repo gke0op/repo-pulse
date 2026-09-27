@@ -2,7 +2,8 @@ package dev.playground.companion.engine
 
 /** Makes LLM text safe to speak: drops stage directions, markdown and emoji. */
 object SpeechText {
-    private val stageDirection = Regex("\\*[^*]*\\*|\\([^)]*\\)")
+    // *actions*, (asides) and any stray [tag] the emotion parser let through as text.
+    private val stageDirection = Regex("\\*[^*]*\\*|\\([^)]*\\)|\\[[A-Za-z][A-Za-z -]{0,20}\\]")
     private val markdown = Regex("[#_`~>\\[\\]]")
     private val nonSpeech = Regex("[\\p{So}\\p{Cn}\\p{Cs}\\uFE0F\\u200D]")
     private val spaces = Regex("\\s+")
