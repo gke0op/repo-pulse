@@ -3,10 +3,11 @@
 A fully local AI companion for Android: three fixed characters (a girl, a boy, a machine), 3D and voiced,
 with no server and a one-time purchase. This repo used to be Repo Pulse; that code lives at `ebf0fba`.
 
-## Status: v0.10 "feelings"
+## Status: v0.14 (see `docs/ROADMAP.md` for what changed and why, `docs/AB_TESTS.md` for open A/Bs)
 
 Voice conversation, all on the phone: mic → streaming ASR → LLM → chunker → TTS → audio,
-with barge-in (talk over her and she stops). Every turn records a timing and RAM trace.
+with barge-in (talk over her and she stops), early start at short pauses, per-character long-term
+memory, and a thermal governor. Every turn records a timing, RAM, heat and gap trace.
 
 | Stage | Tech | Measured (S24 Ultra unless noted) |
 |---|---|---|
@@ -16,7 +17,7 @@ with barge-in (talk over her and she stops). Every turn records a timing and RAM
 | Chunking | `SentenceChunker` | first chunk at a clause or before a conjunction |
 | Voice | Supertonic 3 (default, 2 threads); Kokoro fp32/int8 switchable | RTF 0.40, first audio ~1.0 s after Send |
 | Audio | `AudioTrack` float stream | gapless, instant flush for barge-in |
-| Face | three.js in a WebView, fully procedural (`web/avatar`): Unit Seven is a shoggoth behind a kintsugi mask; Mira and Kai are placeholder plasma orbs | idle / listening / thinking / speaking, lip-sync from a 20 ms loudness envelope, eyes follow touch |
+| Face | three.js in a WebView (`web/avatar`): Unit Seven is a procedural shoggoth behind a kintsugi mask; Mira and Kai are VRM humans (downloaded from a pinned commit) or plasma orbs | idle / listening / thinking / speaking, lip-sync from a 20 ms loudness envelope, eyes follow touch |
 | Feelings | the brain opens each reply with an emotion tag (prefilled `[`), parsed out of the stream (`EmotionTagStream`) and timed to the chunk it belongs to | 7 feelings: calm, happy, sad, angry, surprised, curious, tender; desktop: Gemma 12/12 tagged, prefill makes any brain comply |
 
 Characters: Mira, Kai, Unit Seven (robot filter). Voices download on demand; the choice is remembered.
@@ -30,6 +31,15 @@ Characters: Mira, Kai, Unit Seven (robot filter). Voices download on demand; the
 ```
 
 Needs the Android SDK with NDK 28.2.13676358 and CMake 3.31.6 (`local.properties` → `sdk.dir`).
+APKs are named after the build: `companion-<versionName>-debug.apk`.
+
+On a Mac (as set up 2026-09-28): `brew install openjdk@21 cmake` and
+`brew install --cask android-commandlinetools`, then
+`sdkmanager --sdk_root=$HOME/Library/Android/sdk "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358" "cmake;3.31.6"`
+(accept the licenses first), and build with
+`JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`. Install and read the
+phone over USB: `adb install -r <apk>`, `adb pull /sdcard/Android/data/dev.playground.companion/files/logs`
+(memory notes are in `files/memory/`).
 
 The avatar bundle (`app/src/main/assets/avatar/avatar.js`) is committed; after changing `web/avatar/src`:
 
@@ -46,7 +56,16 @@ cmake --build /tmp/host-build && /tmp/host-build/llm_host_test path/to/model.ggu
 ```
 
 Runs a scripted conversation through the same `llm_engine.cpp` the app uses: memory across turns,
-prefix reuse, cancellation, and history trimming when the context fills.
+prefix reuse, cancellation, history trims (KV shift), retract/join of cut-off turns, and the
+voice-first hold. The same build has:
+- `memory_eval model session.md "Name"`: distills a phone session log into memory notes with the app's prompt.
+- `recall_eval` + `recall_run.sh`: recall vs invention with the app's exact prompt (dump it with
+  `DUMP_PROMPTS_NOTES=<notes dir> ./gradlew :app:testDebugUnitTest --tests '*DumpPromptsTest*'`).
+- `drift_eval model system.txt lines.txt`: replays real user lines and prints reply length per turn.
+
+On-device benchmarks: build `llama-bench` from `third_party/llama.cpp` with the app's CMake flags
+and the NDK toolchain, push it with `libomp.so`/`libc++_shared.so` to `/data/local/tmp`, and point it
+at the model in the app's files dir (see the 2026-09-28 commits for numbers).
 
 ## Using the test APK
 
