@@ -200,7 +200,9 @@ class Pipeline(
             SelfReport.harness(llmModel.label, voiceEngine.label, CHARACTERS.filter { it.id != c.id }.map { it.name }) else ""
         selfTracker.reset()
         presenceTracker.reset()
-        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self, if (Presence.ENABLED && self.isEmpty()) Presence.GUIDE else ""))
+        val notes = memory.notes(c.id)
+        val wishes = if (Memory.WISH_LOG_IN_PROMPT) Memory.wishLogBlock(memory.wishLog(c.id), notes, System.currentTimeMillis()) else ""
+        NativeLlm.setSystem(c.systemPrompt(listOf(Memory.promptBlock(notes), wishes).filter { it.isNotEmpty() }.joinToString("\n\n"), self, if (Presence.ENABLED && self.isEmpty()) Presence.GUIDE else ""))
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
     }
 
@@ -441,6 +443,7 @@ class Pipeline(
                         // Failed (no memory for a scratch context, too long, ...): keep the exchanges for next time.
                         if (out == null) { report += "${c.name}: couldn't distill, kept for next time"; return@all }
                         val added = Memory.parse(out)
+                        memory.logWishes(c.id, added)
                         notes = Memory.merge(notes, added)
                         memory.saveNotes(c.id, notes)
                         memory.consume(c.id, n)
@@ -456,8 +459,12 @@ class Pipeline(
     fun memoryReport(): String = CHARACTERS.joinToString("\n\n") { c ->
         val notes = memory.notes(c.id)
         val waiting = memory.pending(c.id).size
+        val log = memory.wishLog(c.id)
+        val now = System.currentTimeMillis()
         "${c.name}${if (waiting > 0) " ($waiting exchanges not remembered yet)" else ""}\n" +
-            (if (notes.isEmpty()) "  nothing yet" else notes.joinToString("\n") { "  $it" })
+            (if (notes.isEmpty()) "  nothing yet" else notes.joinToString("\n") { "  $it" }) +
+            (if (log.isEmpty()) "" else "\n  wish log, every wish so far (${log.size}):\n" +
+                log.joinToString("\n") { w -> "    " + (if (w.at > 0) SelfReport.ago(now - w.at) else "before the log") + ": " + w.text })
     }
 
     /** Runs the voice benchmark on the LLM thread so it never overlaps a turn. */

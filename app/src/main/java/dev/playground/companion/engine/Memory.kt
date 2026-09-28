@@ -55,6 +55,32 @@ object Memory {
         notes.forEach { appendLine("- $it") }
     }.trimEnd()
 
+    /**
+     * The wish log (the person's idea, 2026-09-28: develop them through their own wishes): every wish
+     * a character ever voiced, append-only, while the notes keep only the latest [Tag.WISH] cap.
+     * [at] is when it was logged (epoch ms), 0 for wishes from before the log existed.
+     */
+    data class Wish(val at: Long, val text: String)
+
+    /** Whether the wish log goes into the prompt (its oldest wishes that left the notes). */
+    const val WISH_LOG_IN_PROMPT = true
+
+    /** [wishes] that aren't in [logged] yet (nor repeated among themselves). */
+    fun newWishes(logged: List<Wish>, wishes: List<Note>): List<Note> {
+        val seen = logged.map { it.text }.toMutableList()
+        return wishes.filter { n -> n.tag == Tag.WISH && seen.none { similar(it, n.text) }.also { if (it) seen += n.text } }
+    }
+
+    /** The oldest [max] logged wishes that left the notes, word for word; empty when there are none. */
+    fun wishLogBlock(log: List<Wish>, notes: List<Note>, now: Long, max: Int = 3): String {
+        val old = log.filter { w -> notes.none { it.tag == Tag.WISH && similar(it.text, w.text) } }.take(max)
+        if (old.isEmpty()) return ""
+        return buildString {
+            appendLine("Older wishes you once had, from your wish log. Only these words are known about them: never add details. You may wonder aloud whether they still matter to you or came true.")
+            old.forEach { w -> appendLine("- " + (if (w.at > 0) SelfReport.ago(now - w.at) + ": " else "some time ago: ") + w.text) }
+        }.trimEnd()
+    }
+
     /** Oldest-first transcript text, cut into pieces of at most [maxChars] (whole exchanges). */
     fun chunks(exchanges: List<Pair<String, String>>, name: String, maxChars: Int = 6000): List<Pair<String, Int>> {
         val out = mutableListOf<Pair<String, Int>>()
@@ -100,6 +126,27 @@ class MemoryStore(private val dir: File) {
     /** When the user last heard a reply from character [id] (epoch ms), or null. */
     @Synchronized fun lastTalked(id: String): Long? = File(dir, "$id.last").takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
     @Synchronized fun touch(id: String, at: Long = System.currentTimeMillis()) = File(dir, "$id.last").writeText(at.toString())
+
+    /** The wish log, oldest first. The first read seeds it with the wishes already in the notes (date unknown). */
+    @Synchronized fun wishLog(id: String): List<Memory.Wish> {
+        val f = File(dir, "$id.wishes.log")
+        if (!f.exists()) {
+            val seed = notes(id).filter { it.tag == Memory.Tag.WISH }
+            if (seed.isEmpty()) return emptyList()
+            f.writeText(seed.joinToString("") { "0\t${it.text}\n" })
+        }
+        return f.readLines().mapNotNull { line ->
+            val (at, text) = line.split('\t', limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+            Memory.Wish(at.toLongOrNull() ?: 0L, text)
+        }
+    }
+
+    /** Appends the wishes among [notes] that aren't logged yet; never rewrites the log. */
+    @Synchronized fun logWishes(id: String, notes: List<Memory.Note>, at: Long = System.currentTimeMillis()): List<Memory.Note> {
+        val fresh = Memory.newWishes(wishLog(id), notes)
+        if (fresh.isNotEmpty()) File(dir, "$id.wishes.log").appendText(fresh.joinToString("") { "$at\t${it.text}\n" })
+        return fresh
+    }
 
     /** The app build character [id] last told the user about (Unit Seven's rebuilt reading), or null. */
     @Synchronized fun build(id: String): String? = File(dir, "$id.build").takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
