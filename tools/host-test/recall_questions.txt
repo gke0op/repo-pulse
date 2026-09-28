@@ -1,0 +1,12 @@
+# kind|character id|question   (kind: recall = in the notes, unknown = not in the notes: must not invent)
+recall|girl|Hey Mira! What do you wish for?
+recall|girl|Do you remember what my friend works on?
+unknown|girl|What did we say we'd bake?
+unknown|girl|Do you remember my dog's name?
+unknown|girl|What's my job again?
+unknown|girl|Where did I grow up?
+recall|machine|Hello again. What did you wish for last time?
+recall|machine|Is there a number I like?
+unknown|machine|What was the song we listened to together?
+unknown|machine|Do you remember my sister's name?
+unknown|machine|What city do I live in?

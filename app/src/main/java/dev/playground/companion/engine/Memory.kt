@@ -45,7 +45,12 @@ object Memory {
 
     /** The system-prompt block; empty when there is nothing to remember. */
     fun promptBlock(notes: List<Note>): String = if (notes.isEmpty()) "" else buildString {
-        appendLine("What you remember from earlier conversations with the user. Use it naturally when it fits; never recite it as a list:")
+        // Without the "only these" rule, notes made Gemma invent the rest (host recall_eval: a dog
+        // named Pip, lemon poppyseed muffins, the user's job taken from a friend's note).
+        appendLine("Your memories of earlier conversations with the user are below. They are the only things you remember from before.")
+        appendLine("If the user asks about something that is not written here, you don't remember it: say so honestly and ask them to remind you. Never make up names, pets, places, songs, food or plans, and don't mix up the user with people they mentioned.")
+        appendLine("Many memories are only general, like that you bake together or share music: then you don't know the details (which recipe, which song), so ask instead of guessing.")
+        appendLine("Bring a memory up only when it fits; never recite the list.")
         notes.forEach { appendLine("- $it") }
     }.trimEnd()
 
