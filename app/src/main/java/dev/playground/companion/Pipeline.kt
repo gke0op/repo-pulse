@@ -394,8 +394,15 @@ class Pipeline(
             notes = notes.size,
             wishes = notes.count { it.tag == Memory.Tag.WISH },
             partOfDay = Presence.partOfDay(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)),
+            // Stamps began in 0.15.3: if he talked with the user before without one, he last ran 0.15.2 or earlier.
+            // Never talked: nothing to compare, stamped once heard.
+            rebuilt = (memory.build(SelfReport.CHARACTER_ID) ?: "0.15.2".takeIf { notes.isNotEmpty() || memory.lastTalked(SelfReport.CHARACTER_ID) != null })
+                ?.let { SelfReport.rebuilt(changesLog, it, appVersion) },
         )
     }
+
+    private val appVersion by lazy { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?" }
+    private val changesLog by lazy { runCatching { ctx.assets.open("self/changes.txt").bufferedReader().use { it.readText() } }.getOrDefault("") }
 
     // ---- time and absence for the others (Presence) ---------------------------------------
     private val presenceTracker = Presence.Tracker()
@@ -559,7 +566,10 @@ class Pipeline(
                         memory.touch(job.trace.characterId)
                         lastHeard = job.trace
                         if (job.trace.readings != null) {
-                            if (SelfReport.ENABLED && job.trace.characterId == SelfReport.CHARACTER_ID) selfTracker.heard() else presenceTracker.heard()
+                            if (SelfReport.ENABLED && job.trace.characterId == SelfReport.CHARACTER_ID) {
+                                // Heard the first-turn readings, rebuilt news included: this build is now known to him.
+                                if (selfTracker.heard()) memory.setBuild(SelfReport.CHARACTER_ID, appVersion)
+                            } else presenceTracker.heard()
                         }
                         ui.onTurnDone(job.turn, job.trace.report())
                     }

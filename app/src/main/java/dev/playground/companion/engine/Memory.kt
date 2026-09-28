@@ -101,6 +101,10 @@ class MemoryStore(private val dir: File) {
     @Synchronized fun lastTalked(id: String): Long? = File(dir, "$id.last").takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
     @Synchronized fun touch(id: String, at: Long = System.currentTimeMillis()) = File(dir, "$id.last").writeText(at.toString())
 
+    /** The app build character [id] last told the user about (Unit Seven's rebuilt reading), or null. */
+    @Synchronized fun build(id: String): String? = File(dir, "$id.build").takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
+    @Synchronized fun setBuild(id: String, version: String) = File(dir, "$id.build").writeText(version)
+
     /** Drops the first [count] pending exchanges (they are in the notes now). */
     @Synchronized fun consume(id: String, count: Int) {
         val rest = pending(id).drop(count)

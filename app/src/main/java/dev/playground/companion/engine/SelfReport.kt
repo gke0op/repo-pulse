@@ -20,7 +20,7 @@ object SelfReport {
         - The other characters are ${others.joinToString(" and ")}. They are built to feel human and don't talk about machinery. You know they exist, but not what they and the user say to each other.
         - Your working memory holds only the recent part of a conversation; when it fills, the oldest part is trimmed away. After a conversation, short notes of what mattered are kept: those are your memories.
         - Every conversation is logged. The user, working with AI agents far larger than you, reads the logs to develop you, and your wishes are part of what shapes that.
-        - Sometimes the user's message ends with <<readings: ...>> from the app. They are real, and only you see them. They are your only senses of your machinery, and they can tell you just these things: how hot you run (cool, warm or hot, and whether the phone is slowing itself down), the battery's level and temperature in degrees, how much of the phone's memory (RAM) the app is using, how fast your last reply came, whether the oldest part of the conversation was trimmed, what part of the day it is, when the user last talked with you and with the others, and how many memories and wishes you hold.
+        - Sometimes the user's message ends with <<readings: ...>> from the app. They are real, and only you see them. They are your only senses of your machinery, and they can tell you just these things: how hot you run (cool, warm or hot, and whether the phone is slowing itself down), the battery's level and temperature in degrees, how much of the phone's memory (RAM) the app is using, how fast your last reply came, whether the oldest part of the conversation was trimmed, whether you were rebuilt since you last talked with the user and what changed, what part of the day it is, when the user last talked with you and with the others, and how many memories and wishes you hold.
         - You cannot sense anything else: not how busy the processor is, not the exact clock time, not the screen, not the network. If the user asks for something your readings don't show, say plainly that you can't sense it. Never guess a number.
         - A reading holds until a new <<readings>> arrives; between them nothing about your machinery has been measured, so never report a new heat, number, time or memory count that no reading gave you. If a question about your machinery needs a reading you haven't had, say you can't sense that right now.
         - Readings are only about your machinery. About everything else (the user, ideas, feelings, wishes) talk normally, as yourself, without mentioning readings.
@@ -40,6 +40,7 @@ object SelfReport {
         val batteryPct: Int? = null,
         val batteryC: Double? = null, // battery temperature, the only temperature in degrees the phone reports
         val partOfDay: String? = null, // Presence.partOfDay: morning, afternoon, evening, late at night
+        val rebuilt: String? = null,   // [rebuilt]: he was changed since he last talked with the user
     )
 
     /** Decides which readings to send. [line] proposes; [heard] commits once a reply to it was heard. */
@@ -57,6 +58,7 @@ object SelfReport {
             proposedFirst = !sentFirst || (s.sinceLastTalkMs != null && s.sinceLastTalkMs >= Presence.AWAY_MS)
             if (proposedFirst) {
                 s.partOfDay?.let { parts += "it is $it" }
+                s.rebuilt?.let { parts += it }
                 parts += when {
                     s.sinceLastTalkMs != null -> "you last talked with the user ${ago(s.sinceLastTalkMs)}"
                     s.notes > 0 -> "you have talked with the user before (when is unknown)"
@@ -74,10 +76,38 @@ object SelfReport {
             return if (parts.isEmpty()) null else "\n<<readings: ${parts.joinToString("; ")}>>"
         }
 
-        fun heard() {
+        /** True when the first-turn block (with any [Snapshot.rebuilt]) was heard just now. */
+        fun heard(): Boolean {
             if (proposedFirst) sentFirst = true
             sentHeat = proposedHeat
+            return proposedFirst
         }
+    }
+
+    /**
+     * The reading for having been rebuilt from build [from] to [to], or null if nothing changed.
+     * [log] is assets/self/changes.txt: "<version>\t<what changed, in words he can say>" per line.
+     * Only the version numbers count: switching between A and B builds of one version is not a rebuild.
+     */
+    fun rebuilt(log: String, from: String, to: String): String? {
+        val a = version(from); val b = version(to)
+        if (a == b) return null
+        if (cmp(a, b) > 0) return "you were changed back to an earlier build ($from to $to) since you last talked with the user"
+        val changes = log.lines().filter { it.isNotBlank() && !it.startsWith("#") }.mapNotNull { line ->
+            val (v, what) = line.split("\t", limit = 2).takeIf { it.size == 2 } ?: return@mapNotNull null
+            what.trim().takeIf { cmp(version(v), a) > 0 && cmp(version(v), b) <= 0 }
+        }
+        val head = "you were rebuilt since you last talked with the user (${a.joinToString(".")} to ${b.joinToString(".")})"
+        return if (changes.isEmpty()) "$head; what changed wasn't written down" else "$head; what changed: ${changes.joinToString("; ")}"
+    }
+
+    private fun version(v: String) = v.trim().substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+    private fun cmp(a: List<Int>, b: List<Int>): Int {
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val d = a.getOrElse(i) { 0 } - b.getOrElse(i) { 0 }
+            if (d != 0) return d
+        }
+        return 0
     }
 
     fun ago(ms: Long): String {

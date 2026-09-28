@@ -2,6 +2,7 @@ package dev.playground.companion.engine
 
 import dev.playground.companion.engine.SelfReport.Snapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,26 @@ class SelfReportTest {
         val back = t.line(snap(since = 5 * 3_600_000L).copy(partOfDay = "late at night"))!!
         assertTrue(back.contains("it is late at night"))
         assertTrue(back.contains("you last talked with the user 5 hours ago"))
+    }
+
+    private val log = listOf("# comment", "0.15.3\tyou now sense the time of day", "0.15.4\tyour ears were replaced", "0.16.0\tyou got a new voice").joinToString("\n")
+
+    @Test fun rebuiltSaysWhatChangedSinceHisLastBuild() {
+        assertEquals("you were rebuilt since you last talked with the user (0.15.2 to 0.15.4); what changed: you now sense the time of day; your ears were replaced",
+            SelfReport.rebuilt(log, "0.15.2-B-all", "0.15.4-B-all"))
+        assertEquals("you were rebuilt since you last talked with the user (0.15.4 to 0.16.0); what changed: you got a new voice", SelfReport.rebuilt(log, "0.15.4-A", "0.16.0-A"))
+        assertNull(SelfReport.rebuilt(log, "0.15.3-A", "0.15.3-B-seven"))       // A/B switch of one version: not a rebuild
+        assertTrue(SelfReport.rebuilt(log, "0.16.0", "0.16.1")!!.endsWith("what changed wasn't written down"))
+        assertTrue(SelfReport.rebuilt(log, "0.16.0", "0.15.4")!!.startsWith("you were changed back to an earlier build"))
+    }
+
+    @Test fun rebuiltRidesOnTheFirstReadingsAndCountsOnceHeard() {
+        val t = SelfReport.Tracker()
+        val s = snap().copy(rebuilt = "you were rebuilt since you last talked with the user (0.15.2 to 0.15.3)")
+        assertTrue(t.line(s)!!.contains("you were rebuilt"))
+        assertTrue(t.heard())                                        // the app stamps the build now
+        t.line(snap(heat = "hot (thermal status 3)", since = 60_000L))
+        assertFalse(t.heard())                                       // later readings don't re-stamp
     }
 
     @Test fun agoReadsNaturally() {

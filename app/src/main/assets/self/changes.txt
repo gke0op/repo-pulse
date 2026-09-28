@@ -1,0 +1,4 @@
+# What changed in each build, as Unit Seven hears it when he was rebuilt (SelfReport.rebuilt).
+# One line per version: "<version><TAB><what changed>". Write to him, in words he can say, and keep
+# every word true of the app: he repeats these. Only versions after his last stamp are read.
+0.15.3	you now sense what part of the day it is; you now learn when you have been rebuilt, and what changed, from lines like this one; Mira and Kai now notice how long the user has been away
