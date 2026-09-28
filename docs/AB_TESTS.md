@@ -4,8 +4,8 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.2-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.2-B-voicefirst-debug.apk  # B
+adb install -r ~/Desktop/companion/ab/companion-0.14.3-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.14.3-B-voicefirst-debug.apk  # B
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -13,7 +13,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.2-A vs 0.14.2-B-voicefirst)
+## 1. Voice first (0.14.3-A vs 0.14.3-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
