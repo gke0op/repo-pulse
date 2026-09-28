@@ -10,7 +10,7 @@ package dev.playground.companion.engine
  */
 object SelfReport {
     /** A/B: false in build A, true in build B-seven (branch ab/seven). */
-    const val ENABLED = false
+    const val ENABLED = true
     const val CHARACTER_ID = "machine"
 
     /** Standing knowledge for his system prompt. Every sentence must stay true of the app. */

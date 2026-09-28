@@ -14,8 +14,8 @@ package dev.playground.companion.engine
  */
 object ReplyLength {
     /** A/B: null in build A (off), set in build B-brief (branch ab/brief). */
-    val REMINDER: String? = null
-    val LONG_REMINDER: String? = null
+    val REMINDER: String? = "\n(Out loud: one to three short sentences.)"
+    val LONG_REMINDER: String? = "\n(Out loud: this time say the whole thing now, in full, no preamble.)"
     private val LONG_FORM = Regex("""\b(poems?|song|sing|story|stories|lyrics|write|longer|tell me more|explain)\b""", RegexOption.IGNORE_CASE)
 
     /** What the brain is sent for [userText]; the transcript and memory keep the plain text. */

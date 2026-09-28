@@ -15,7 +15,7 @@ import java.io.File
  */
 object TurnDetector {
     /** A/B: false in build A, true in build B-turn (branch ab/turn). */
-    const val ENABLED = false
+    const val ENABLED = true
     /** Only a confident "done" ends the turn early; anything less waits for the silence rule as before. */
     const val THRESHOLD = 0.9f
 
