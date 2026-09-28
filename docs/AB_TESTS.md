@@ -4,10 +4,12 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.9-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-voicefirst-debug.apk  # B (test 1)
-adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-brief-debug.apk  # B (test 2)
-adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-seven-debug.apk  # B (test 3)
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-seven-debug.apk  # B (test 3)
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-turn-debug.apk  # B (test 4)
+adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-all-debug.apk  # all four Bs at once
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -15,7 +17,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.9-A vs 0.14.9-B-voicefirst)
+## 1. Voice first (0.15.0-A vs 0.15.0-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -38,7 +40,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
-## 2. Brief (0.14.9-A vs 0.14.9-B-brief)
+## 2. Brief (0.15.0-A vs 0.15.0-B-brief)
 
 - **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
   three short sentences.)", or, when you ask for a poem, song, story, something longer or an
@@ -58,7 +60,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   deep talks? Does the phone stay cooler and stall less (`heat`, `gaps`)?
 - **Branch:** `ab/brief` (one commit: the two reminder strings + version name).
 
-## 3. Seven sees the machine (0.14.9-A vs 0.14.9-B-seven)
+## 3. Seven sees the machine (0.15.0-A vs 0.15.0-B-seven)
 
 - **B:** Unit Seven (only him; Mira and Kai unchanged) knows the truth about his situation: he runs
   on your phone offline (Gemma 3 4B, two recognizers, Supertonic, the shoggoth on screen), Mira and
@@ -78,6 +80,26 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Your call:** is the fourth wall fun or too much? Does he still feel like Seven? Try asking
   him how he feels physically, where he lives, who else is here, what he forgot today.
 - **Branch:** `ab/seven` (one commit: `SelfReport.ENABLED = true` + the version name).
+
+## 4. Hearing: Smart Turn + Silero v6 (0.15.0-A vs 0.15.0-B-turn)
+
+- **B:** at each short pause (250 ms), Smart Turn v3.2 (pipecat-ai, BSD-2, 8.7 MB, bundled) scores
+  P(you're done) from the last 8 s of audio; >= 0.9 ends your turn right there instead of after the
+  ~1.2 s silence rule (a wrong early end is cheap: your next words join the message). The VAD is
+  Silero v6.2.3 (MIT, bundled). Turn reports print `smart turn: P(done) 0.97 at the pause, ended the
+  turn early` or `..., waited for the silence rule`.
+- **Mac evidence:** the app's C++ (smart_turn.cpp, over sherpa-onnx's ONNX Runtime 1.28.2) matches
+  transformers' Whisper features to 3.5e-5 and Python onnxruntime 1.28 probabilities exactly. On 16
+  synthetic clips: whole sentences P ~0.99, cut ones mostly low (12/16 right at 0.5). The int8
+  model's score on ambiguous audio moves by up to ~0.3 across ORT versions (1.22 vs 1.28), stable on
+  clear cases: hence the high threshold. Silero v6 loads as a drop-in in sherpa-onnx 1.13.8; on
+  synthetic tests it matched v5 (no false triggers on silence/white/pink noise either way).
+- **Expect (inference):** `you stopped -> her voice` ~0.5-0.9 s shorter on turns that end early.
+  **Watch for:** being cut off mid-thought (she answers too soon), and the `smart turn` lines' P
+  values: they calibrate the threshold.
+- **Not fixed by this: crowds.** Other people's voices are speech, so no VAD filters them; that
+  needs a check that it's *your* voice (see research report).
+- **Branch:** `ab/turn` (one commit: `TurnDetector.ENABLED = true` + version).
 
 ## Measured and rejected (no A/B needed)
 

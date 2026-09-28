@@ -25,6 +25,7 @@ import android.app.AlertDialog
 import dev.playground.companion.engine.AsrEngine
 import dev.playground.companion.engine.Emotion
 import dev.playground.companion.engine.Ears
+import dev.playground.companion.engine.TurnDetector
 import dev.playground.companion.engine.LlmModel
 import dev.playground.companion.engine.Transcriber
 import dev.playground.companion.engine.VoiceEngine
@@ -433,7 +434,10 @@ class MainActivity : Activity(), Pipeline.Listener {
                     val pct = if (total > 0) " ${done * 100 / total}%" else ""
                     runOnUiThread { status.text = "$what$pct" }
                 }
-                val e = ears ?: Ears(store.asrDir, store.vadFile, earsListener).also { ears = it }
+                // B-turn: Silero VAD v6.2.3 and Smart Turn (both bundled; TurnDetector.ENABLED).
+                val vad = if (TurnDetector.ENABLED) TurnDetector.sileroV6(this) else store.vadFile
+                val e = ears ?: Ears(store.asrDir, vad, earsListener).also { ears = it }
+                if (TurnDetector.ENABLED && e.turnDetector == null && TurnDetector.prepare(this)) e.turnDetector = TurnDetector::predict
                 runOnUiThread { setCallMode(true) }
                 e.start()
                 micOn = true
@@ -504,6 +508,10 @@ class MainActivity : Activity(), Pipeline.Listener {
         override fun onShortPause(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {
             if (!micOn || !send.isEnabled) return
             pipeline.onUserPause(text, lastVoiceAt, voicedMs, recognizeMs)
+        }
+
+        override fun onPauseScored(lastVoiceAt: Long, turnProb: Float) {
+            if (micOn) pipeline.onPauseScored(lastVoiceAt, turnProb)
         }
 
         override fun onFinal(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {

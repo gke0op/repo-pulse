@@ -33,3 +33,12 @@ target_link_libraries(recall_eval PRIVATE llama llama-common)
 add_executable(drift_eval drift_eval.cpp ${APP_CPP}/llm_engine.cpp)
 target_include_directories(drift_eval PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
 target_link_libraries(drift_eval PRIVATE llama llama-common)
+
+# Smart Turn check: needs ONNX Runtime's C library for the host (ORT_DIR = an onnxruntime release dir).
+if(ORT_DIR)
+    add_executable(turn_eval turn_eval.cpp ${APP_CPP}/smart_turn.cpp)
+    target_include_directories(turn_eval PRIVATE ${APP_CPP} ${ORT_DIR}/include)
+    target_link_directories(turn_eval PRIVATE ${ORT_DIR}/lib)
+    target_link_libraries(turn_eval PRIVATE onnxruntime)
+    set_target_properties(turn_eval PROPERTIES BUILD_RPATH ${ORT_DIR}/lib)
+endif()

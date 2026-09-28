@@ -6,6 +6,8 @@ set -euo pipefail
 
 LLAMA_TAG=b11201
 SHERPA_VER=v1.13.8
+# The ONNX Runtime sherpa-onnx ships (strings libonnxruntime.so: 1.28.2): its C API headers, for smart_turn.cpp.
+ORT_VER=v1.28.2
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -22,5 +24,12 @@ if [ ! -f "$JNI/libsherpa-onnx-jni.so" ]; then
   mkdir -p "$JNI"
   cp "$tmp/jniLibs/arm64-v8a/libsherpa-onnx-jni.so" "$tmp/jniLibs/arm64-v8a/libonnxruntime.so" "$JNI/"
   rm -rf "$tmp"
+fi
+ORT_INC="$ROOT/third_party/onnxruntime-include"
+if [ ! -f "$ORT_INC/onnxruntime_c_api.h" ]; then
+  mkdir -p "$ORT_INC"
+  for h in onnxruntime_c_api.h onnxruntime_ep_c_api.h onnxruntime_error_code.h; do
+    curl -fsSL -o "$ORT_INC/$h" "https://raw.githubusercontent.com/microsoft/onnxruntime/$ORT_VER/include/onnxruntime/core/session/$h"
+  done
 fi
 echo "deps ready"

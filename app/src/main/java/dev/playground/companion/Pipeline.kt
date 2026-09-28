@@ -16,6 +16,7 @@ import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.ReplyLength
 import dev.playground.companion.engine.RobotFilter
 import dev.playground.companion.engine.SelfReport
+import dev.playground.companion.engine.TurnDetector
 import dev.playground.companion.engine.SentenceChunker
 import dev.playground.companion.engine.SpeechText
 import dev.playground.companion.engine.Voice
@@ -249,6 +250,11 @@ class Pipeline(
         if (heldTurn != 0 && heldText == text) return
         earlyStarted++
         say(text, heardAt = lastVoiceAt, recognizeMs = recognizeMs, held = true)
+    }
+
+    /** Smart Turn's score for the pause that started the current early start (for the turn report). */
+    fun onPauseScored(lastVoiceAt: Long, turnProb: Float) {
+        activeTrace?.takeIf { it.early && it.heardAt == lastVoiceAt }?.turnProb = turnProb
     }
 
     // Early-start state. holdLock guards heldTurn and the UI callbacks deferred until commit.
@@ -608,6 +614,8 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var heat = ""
     /** FTT: started at a short pause, before your end of turn; [committedAt] when that end came. */
     @Volatile var voiceFirst = false
+    /** Smart Turn's P(done) at the pause that started this turn, or -1. */
+    @Volatile var turnProb = -1f
     /** Unit Seven's <<readings>> sent with this turn, if any (SelfReport). */
     @Volatile var readings: String? = null
     @Volatile var early = false
@@ -634,6 +642,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
             appendLine("  you stopped -> her voice : ${firstAudioAt - heardAt} ms   <- from your last sound (incl. end-of-turn wait)")
             if (recognizeMs > 0) appendLine("  2nd-pass recognize      : $recognizeMs ms (included above)")
             if (early) appendLine("  early start             : brain started ${t0 - heardAt} ms after you stopped, end of turn at ${committedAt - heardAt} ms ($earlyTally)")
+            if (turnProb >= 0f) appendLine("  smart turn              : P(done) %.2f at the pause%s".format(turnProb, if (turnProb >= TurnDetector.THRESHOLD) ", ended the turn early" else ", waited for the silence rule"))
         }
         appendLine("  first audio : ${rel(firstAudioAt)}   <- time until you hear a voice")
         append("  first token : ${rel(firstPieceAt)}")

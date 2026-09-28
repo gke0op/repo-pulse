@@ -45,6 +45,8 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
          * same text and [lastVoiceAt].
          */
         fun onShortPause(text: String, lastVoiceAt: Long, voicedMs: Int, recognizeMs: Long) {}
+        /** Smart Turn's P(done) for the pause at [lastVoiceAt], scored after [onShortPause] so the early start never waits for it. */
+        fun onPauseScored(lastVoiceAt: Long, turnProb: Float) {}
     }
 
     private val recognizer = OnlineRecognizer(
@@ -96,6 +98,12 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
     private class PauseText(val utterance: Int, val lastVoiceAt: Long, val text: String, val ms: Long)
     private var pauseText: PauseText? = null // ears-2nd thread only
     private var utteranceId = 0 // mic thread; bumped whenever an utterance ends or is discarded
+
+    /** Smart Turn: P(turn complete) for the audio so far; null = off. Runs on the second-pass thread. */
+    @Volatile var turnDetector: ((FloatArray) -> Float)? = null
+    /** Set when a pause scored >= TurnDetector.THRESHOLD: the mic thread ends that utterance now. */
+    private class EarlyEnd(val utterance: Int, val lastVoiceAt: Long)
+    @Volatile private var earlyEnd: EarlyEnd? = null
 
     /** Your last few utterances (audio + texts), for the on-device ASR bench. */
     val recent: MutableList<AsrBench.Utterance> = java.util.Collections.synchronizedList(mutableListOf())
@@ -192,7 +200,10 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
                     pause(utteranceId, text, concat(utterance, from), lastVoiceAt, voicedMs)
                 }
 
-                if (recognizer.isEndpoint(stream)) {
+                // Smart Turn said "done" at the last pause and nobody has spoken since: end the turn now.
+                val early = earlyEnd?.takeIf { it.utterance == utteranceId && it.lastVoiceAt == lastVoiceAt && !vad.isSpeechDetected() }
+                if (early != null) earlyEnd = null
+                if (early != null || recognizer.isEndpoint(stream)) {
                     // VAD's last speech is closer to when you actually stopped than ASR's last text
                     // change (measured ~0.7 s ASR lag); fall back to the latter if VAD never fired.
                     // No VAD speech at all = the streaming model hearing words in silence ("And",
@@ -229,6 +240,10 @@ class Ears(asrDir: File, vadFile: File, private val listener: Listener) {
             val text = r?.text?.takeIf { it.isNotBlank() } ?: streamingText
             pauseText = PauseText(utterance, lastVoiceAt, text, r?.ms ?: 0L)
             listener.onShortPause(text, lastVoiceAt, voicedMs, r?.ms ?: 0L)
+            val td = turnDetector ?: return@execute
+            val p = runCatching { td(audio) }.getOrNull() ?: return@execute
+            if (p >= TurnDetector.THRESHOLD) earlyEnd = EarlyEnd(utterance, lastVoiceAt)
+            listener.onPauseScored(lastVoiceAt, p)
         }
     }
 

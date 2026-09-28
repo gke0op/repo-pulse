@@ -13,6 +13,12 @@ endif()
 set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/../../../../third_party/llama.cpp)
 add_subdirectory(${LLAMA_SRC} build-llama)
 
-add_library(companion SHARED llm_engine.cpp llm_jni.cpp)
-target_include_directories(companion PRIVATE ${LLAMA_SRC}/common)
-target_link_libraries(companion llama llama-common android log)
+# sherpa-onnx's ONNX Runtime (jniLibs), reused by smart_turn.cpp through its C API (headers: fetch-deps.sh).
+add_library(onnxruntime SHARED IMPORTED)
+set_target_properties(onnxruntime PROPERTIES IMPORTED_LOCATION
+    ${CMAKE_CURRENT_LIST_DIR}/../jniLibs/${ANDROID_ABI}/libonnxruntime.so)
+
+add_library(companion SHARED llm_engine.cpp llm_jni.cpp smart_turn.cpp turn_jni.cpp)
+target_include_directories(companion PRIVATE ${LLAMA_SRC}/common
+    ${CMAKE_CURRENT_LIST_DIR}/../../../../third_party/onnxruntime-include)
+target_link_libraries(companion llama llama-common onnxruntime android log)
