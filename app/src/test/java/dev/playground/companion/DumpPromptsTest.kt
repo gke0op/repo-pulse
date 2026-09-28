@@ -19,6 +19,8 @@ class DumpPromptsTest {
             val notes = File(dir, "${c.id}.notes.txt").takeIf { it.exists() }?.let { Memory.parse(it.readText()) }.orEmpty()
             File(out, "${c.id}.txt").writeText(c.systemPrompt(Memory.promptBlock(notes)))
             File(out, "${c.id}.nomemory.txt").writeText(c.systemPrompt())
+            if (c.id == dev.playground.companion.engine.SelfReport.CHARACTER_ID) File(out, "${c.id}.seven.txt").writeText(
+                c.systemPrompt(Memory.promptBlock(notes), dev.playground.companion.engine.SelfReport.harness("Gemma 3 4B", "Supertonic 3", listOf("Mira", "Kai"))))
         }
     }
 }

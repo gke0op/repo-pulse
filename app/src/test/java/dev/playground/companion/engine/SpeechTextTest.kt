@@ -27,6 +27,9 @@ class SpeechTextTest {
         assertEquals("Here goes…", c("Here goes... *[Mira begins to recite a poem]*").replace("...", "…"))
     }
 
+    @Test fun echoedReadingsAreNeverSpoken() =
+        assertEquals("I am cool.", c("I am cool. <<readings: heat: cool, no slowdown>>"))
+
     @Test fun asidesTagsMarkdownAndEmojiGo() {
         assertEquals("Hi there!", c("Hi (waves) there! 😊"))
         assertEquals("I am fine.", c("[calm] I am fine."))

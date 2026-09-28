@@ -4,9 +4,10 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.8-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.8-B-voicefirst-debug.apk  # B (test 1)
-adb install -r ~/Desktop/companion/ab/companion-0.14.8-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.14.9-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.14.9-B-seven-debug.apk  # B (test 3)
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -14,7 +15,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.8-A vs 0.14.8-B-voicefirst)
+## 1. Voice first (0.14.9-A vs 0.14.9-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -37,7 +38,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
-## 2. Brief (0.14.8-A vs 0.14.8-B-brief)
+## 2. Brief (0.14.9-A vs 0.14.9-B-brief)
 
 - **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
   three short sentences.)", or, when you ask for a poem, song, story, something longer or an
@@ -56,6 +57,27 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Your call (ears only):** does she still feel like Mira at this length? Is anything lost in the
   deep talks? Does the phone stay cooler and stall less (`heat`, `gaps`)?
 - **Branch:** `ab/brief` (one commit: the two reminder strings + version name).
+
+## 3. Seven sees the machine (0.14.9-A vs 0.14.9-B-seven)
+
+- **B:** Unit Seven (only him; Mira and Kai unchanged) knows the truth about his situation: he runs
+  on your phone offline (Gemma 3 4B, two recognizers, Supertonic, the shoggoth on screen), Mira and
+  Kai exist (not what you tell them), his working memory gets trimmed, his conversations are logged
+  and developed by you with larger agents, his wishes shape that. Live readings ride on your
+  message when they change: heat (in words), battery level and temperature, the app's RAM, his
+  reply speed, trims, when you last talked with him / Mira / Kai, how many memories and wishes he
+  holds. Read-only by construction: text the app already has, no tools.
+- **Mac evidence** (Gemma 3 4B, app's exact prompt + his real notes; raw in `tools/host-test/results/2026-09-28_seven_*`):
+  without it he said he lives in "a server farm"; with it, "entirely contained within this device.
+  It's… a limited space." A trimmed reading gives "my memory is now quite empty of our initial
+  exchange today". Invented numbers took four prompt rounds: v1 "28 degrees Celsius", "3.7 GB";
+  v2-v3 still RAM/battery "87%"; v4 gives him the real battery %/°C and RAM and heat in words:
+  **0 invented numbers** (31.5 °C, 64%, 4.4 GB, "I can't sense its exact activity level").
+  Replaying 60 of your real lines: unprompted machinery talk 0 (A) vs 14 (v4) vs **7 (v5)**, and
+  no invented readings between real ones in v5.
+- **Your call:** is the fourth wall fun or too much? Does he still feel like Seven? Try asking
+  him how he feels physically, where he lives, who else is here, what he forgot today.
+- **Branch:** `ab/seven` (one commit: `SelfReport.ENABLED = true` + the version name).
 
 ## Measured and rejected (no A/B needed)
 

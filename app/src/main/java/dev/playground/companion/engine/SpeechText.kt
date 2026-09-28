@@ -17,8 +17,8 @@ object SpeechText {
         RegexOption.IGNORE_CASE,
     )
     // (asides), and [bracketed words] the emotion parser let through: a stray tag or "[Mira begins to recite]" ("[1]" stays).
-    private val aside = Regex("""\([^)]*\)|\[[A-Za-z][^\]]{0,79}\]""")
-    private val markdown = Regex("[#_`~>*\\[\\]]")
+    private val aside = Regex("""\([^)]*\)|\[[A-Za-z][^\]]{0,79}\]|<<[^>]*>>""") // <<readings>> Unit Seven might echo
+    private val markdown = Regex("[#_`~<>*\\[\\]]")
     private val nonSpeech = Regex("[\\p{So}\\p{Cn}\\p{Cs}\\uFE0F\\u200D]")
     private val spaces = Regex("\\s+")
 

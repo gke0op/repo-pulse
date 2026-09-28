@@ -15,6 +15,7 @@ import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.ReplyLength
 import dev.playground.companion.engine.RobotFilter
+import dev.playground.companion.engine.SelfReport
 import dev.playground.companion.engine.SentenceChunker
 import dev.playground.companion.engine.SpeechText
 import dev.playground.companion.engine.Voice
@@ -193,7 +194,10 @@ class Pipeline(
     }
 
     private fun applyCharacter(c: Character) {
-        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id))))
+        val self = if (SelfReport.ENABLED && c.id == SelfReport.CHARACTER_ID)
+            SelfReport.harness(llmModel.label, voiceEngine.label, CHARACTERS.filter { it.id != c.id }.map { it.name }) else ""
+        selfTracker.reset()
+        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self))
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
     }
 
@@ -299,6 +303,7 @@ class Pipeline(
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
         trace.early = held
+        if (SelfReport.ENABLED && character.id == SelfReport.CHARACTER_ID) trace.readings = selfTracker.line(selfSnapshot())
         activeTrace = trace
         if (held) synchronized(holdLock) {
             holdGate = CountDownLatch(1)
@@ -329,7 +334,7 @@ class Pipeline(
             }
             // Prefill "[" so every brain opens with an emotion tag (Llama 3.2 ignores the instruction otherwise).
             var prefilled = false
-            val stats = NativeLlm.replyStreaming(ReplyLength.framed(text), MAX_REPLY_TOKENS, "[") { bytes ->
+            val stats = NativeLlm.replyStreaming(ReplyLength.framed(text + (trace.readings ?: "")), MAX_REPLY_TOKENS, "[") { bytes ->
                 // The first callback is our own prefilled "[", not a generated token.
                 if (!prefilled) prefilled = true else if (trace.firstPieceAt == 0L) trace.firstPieceAt = now()
                 for (part in tags.push(String(bytes, Charsets.UTF_8))) when (part) {
@@ -353,6 +358,33 @@ class Pipeline(
             ttsQueue.put(TtsJob.End(turn, trace))
         }
         return turn
+    }
+
+    // ---- Unit Seven's readings (SelfReport) ------------------------------------------------
+    private val selfTracker = SelfReport.Tracker()
+    @Volatile private var lastHeard: TurnTrace? = null
+
+    private fun selfSnapshot(): SelfReport.Snapshot {
+        val now = System.currentTimeMillis()
+        val (status, _) = heatReading()
+        // Sticky broadcast: no receiver needed, just the latest battery state.
+        val battery = runCatching { ctx.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) }.getOrNull()
+        val last = lastHeard?.takeIf { it.characterId == SelfReport.CHARACTER_ID }
+        val notes = memory.notes(SelfReport.CHARACTER_ID)
+        return SelfReport.Snapshot(
+            // Words, not the status number: "thermal status 0" was read back as "0 degrees" (host probes).
+            heat = "$heatLevel, " + (if (status >= 2) "the phone is slowing itself down" else "no slowdown") +
+                "; your body drawn at up to ${if (heatLevel == "hot") 24 else if (heatLevel == "warm") 30 else 60} fps",
+            tokPerSec = last?.llm?.tokPerSec,
+            ramMb = MemProbe.read(ctx).rssMb.toInt(),
+            batteryPct = battery?.let { b -> b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1).takeIf { it >= 0 }?.let { it * 100 / b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1) } },
+            batteryC = battery?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)?.takeIf { it != Int.MIN_VALUE }?.let { it / 10.0 },
+            trimmed = last?.llm?.rebuilt == true,
+            sinceLastTalkMs = memory.lastTalked(SelfReport.CHARACTER_ID)?.let { now - it },
+            others = CHARACTERS.filter { it.id != SelfReport.CHARACTER_ID }.map { c -> c.name to memory.lastTalked(c.id)?.let { now - it } },
+            notes = notes.size,
+            wishes = notes.count { it.tag == Memory.Tag.WISH },
+        )
     }
 
     // ---- long-term memory -----------------------------------------------------------------
@@ -504,6 +536,9 @@ class Pipeline(
                         job.trace.heat = heat()
                         // Heard to the end: worth remembering (distilled later by remember()).
                         memory.addExchange(job.trace.characterId, job.trace.userText, SpeechText.clean(job.trace.replyText))
+                        memory.touch(job.trace.characterId)
+                        lastHeard = job.trace
+                        if (job.trace.readings != null) selfTracker.heard()
                         ui.onTurnDone(job.turn, job.trace.report())
                     }
                 }
@@ -573,6 +608,8 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var heat = ""
     /** FTT: started at a short pause, before your end of turn; [committedAt] when that end came. */
     @Volatile var voiceFirst = false
+    /** Unit Seven's <<readings>> sent with this turn, if any (SelfReport). */
+    @Volatile var readings: String? = null
     @Volatile var early = false
     @Volatile var committed = false
     @Volatile var committedAt = 0L

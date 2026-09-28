@@ -97,6 +97,10 @@ class MemoryStore(private val dir: File) {
         }
     }
 
+    /** When the user last heard a reply from character [id] (epoch ms), or null. */
+    @Synchronized fun lastTalked(id: String): Long? = File(dir, "$id.last").takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
+    @Synchronized fun touch(id: String, at: Long = System.currentTimeMillis()) = File(dir, "$id.last").writeText(at.toString())
+
     /** Drops the first [count] pending exchanges (they are in the notes now). */
     @Synchronized fun consume(id: String, count: Int) {
         val rest = pending(id).drop(count)
