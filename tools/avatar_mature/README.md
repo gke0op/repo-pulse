@@ -14,6 +14,10 @@ $B --background --python islands.py -- orig/kai.vrm isl_kai.json
 python3 repaint.py kai Tops_01.png isl_kai.json Body_00.png tops_kai.png
 # 3. wardrobe + proportions + face, export VRM 0.x
 $B --background --python mature.py -- kai orig/kai.vrm ../../models/avatar/kai.vrm tops_kai.png isl_kai.json
+# 3b. our own eyes/brows/lashes/face marks, drawn in millimetres on the face (then ART=<dir> for mature.py)
+$B --background --python dump_face_uv.py -- ../../models/avatar/kai.vrm faceuv_kai.json
+python3 face_art.py kai faceuv_kai.json <extracted textures dir> art_kai
+ART=art_kai $B --background --python mature.py -- kai orig/kai.vrm ../../models/avatar/kai.vrm tops_kai.png isl_kai.json wardrobe,proportions,face,identity
 # 4. verify budgets, blend-shape binds, bones, lookAt, meta
 python3 ../vrm_check.py ../../models/avatar/*.vrm
 ```
@@ -28,3 +32,7 @@ What `mature.py` does (per-character numbers in `P`):
   position-based fields over every mesh so seams move together.
 - Every deformation is applied to the basis **and every shape key** with the same map, so the
   morph targets (visemes, blinks, emotions) stay aligned.
+- **identity**: our palette (Mira copper-rose hair, amber eyes; Kai ash slate hair, grey-green
+  eyes) on the MToon factors, and our own iris, highlight, eyeline, lash, brow and face-skin
+  textures from `face_art.py` (VRoid's lash spikes, iris, highlights and nose tick are gone;
+  Mira has a beauty mark). Everything drawn is procedural, no third-party art.

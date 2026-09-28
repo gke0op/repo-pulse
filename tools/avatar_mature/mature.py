@@ -202,6 +202,49 @@ if 'face' in stages:
     log('face', f'eyes x{s_eye}', f'lower face +{k:.0%}', f'lower cheeks -{cheek:.0%}')
 
 
+# ---------------------------------------------------------------- identity: our colours and face art
+PALETTE = {  # sRGB hex; MToon factors are linear
+    'mira': dict(hair='#C8665A', hair_shade='#7A3E5C', brow='#5A2A2E', line='#3A1E22'),
+    'kai':  dict(hair='#5E6B80', hair_shade='#34304A', brow='#2E3440', line='#262A33'),
+}[char]
+
+
+def lin(h):
+    return [(int(h[i:i + 2], 16) / 255) ** 2.2 for i in (1, 3, 5)]
+
+
+def replace_pixels(img, path):
+    new = bpy.data.images.load(path)
+    assert tuple(new.size) == tuple(img.size), (img.name, tuple(new.size), tuple(img.size))
+    img.pixels.foreach_set(new.pixels[:]); img.update(); img.pack()
+    bpy.data.images.remove(new)
+
+
+if 'identity' in stages:
+    import os, glob
+    art = os.environ['ART']
+    for p in sorted(glob.glob(f'{art}/*.png')):
+        name = os.path.basename(p)[3:-4]                 # "09_F00_000_EyeIris_00.png" -> image name
+        replace_pixels(bpy.data.images[name], p)
+        log('art', name)
+    for m in bpy.data.materials:
+        if 'Outline' in m.name: continue
+        t = m.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
+        if '_HAIR' in m.name and not ('HAIR_02' in m.name and char == 'mira'):
+            t.pbr_metallic_roughness.base_color_factor = lin(PALETTE['hair']) + [1.0]
+            x.shade_color_factor = lin(PALETTE['hair_shade'])
+            t.emissive_factor = [c * 0.10 for c in lin(PALETTE['hair'])]
+        elif 'FaceBrow' in m.name:
+            t.pbr_metallic_roughness.base_color_factor = lin(PALETTE['brow']) + [1.0]
+            x.shade_color_factor = lin(PALETTE['brow'])
+        elif 'FaceEyelash' in m.name or 'FaceEyeline' in m.name:
+            t.pbr_metallic_roughness.base_color_factor = lin(PALETTE['line']) + [1.0]
+            x.shade_color_factor = lin(PALETTE['line'])
+        else:
+            continue
+        log('colour', m.name)
+
+
 # ---------------------------------------------------------------- export
 bpy.context.view_layer.objects.active = arm
 log('tris after', tri_count())
