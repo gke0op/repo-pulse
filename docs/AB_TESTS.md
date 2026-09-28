@@ -4,9 +4,9 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.6-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.6-B-voicefirst-debug.apk  # B (test 1)
-adb install -r ~/Desktop/companion/ab/companion-0.14.6-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.14.7-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.14.7-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.14.7-B-brief-debug.apk  # B (test 2)
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -14,7 +14,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.6-A vs 0.14.6-B-voicefirst)
+## 1. Voice first (0.14.7-A vs 0.14.7-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -37,7 +37,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
-## 2. Brief (0.14.6-A vs 0.14.6-B-brief)
+## 2. Brief (0.14.7-A vs 0.14.7-B-brief)
 
 - **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
   three short sentences.)", or, when you ask for a poem, song, story, something longer or an
