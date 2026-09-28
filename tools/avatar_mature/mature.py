@@ -284,43 +284,77 @@ if os.environ.get('CYBER') and 'identity' in stages:
 # Her iris is split into base / glow / pupil layers (eye_layers.py) stacked on duplicated iris geometry;
 # sizes are shape keys scaled about each eye's own centre, colours are material binds, and both live in
 # eye-only expressions (eye_happy, eye_angry, ...) that vrm.js drives from the emotion engine.
-EYE_EMO = {  # directions from the audited research; sizes are judgement (exaggerated so they read on a phone)
-    'eye_happy':     dict(keys={'EYE_PupilDilate': 0.35, 'EYE_HighlightGrow': 0.8, 'EYE_IrisGrow': 0.6},
-                          mats={'hl': ('_EmissionColor', (0.5, 0.5, 0.5, 1)), 'glow': ('_EmissionColor', (0.30, 0.19, 0.07, 1))}),
-    'eye_sad':       dict(keys={'EYE_PupilDilate': 0.2, 'EYE_HighlightGrow': 0.4},
-                          mats={'white': ('_Color', (1.0, 0.88, 0.88, 1)), 'glow': ('_Color', (0.60, 0.60, 0.75, 1)),
-                                'hl': ('_EmissionColor', (0.35, 0.38, 0.45, 1))}),
-    'eye_angry':     dict(keys={'EYE_PupilConstrict': 0.25},
-                          mats={'white': ('_Color', (1.0, 0.78, 0.78, 1)), 'glow': ('_Color', (0.45, 0.10, 0.08, 1)),
-                                'hl': ('_Color', (1, 1, 1, 0.45))}),
-    'eye_surprised': dict(keys={'EYE_PupilDilate': 0.4, 'EYE_HighlightGrow': 0.5}, mats={}),
-    'eye_curious':   dict(keys={'EYE_PupilDilate': 0.3}, mats={'hl': ('_EmissionColor', (0.3, 0.3, 0.3, 1))}),
-    'eye_tender':    dict(keys={'EYE_PupilDilate': 0.3, 'EYE_IrisGrow': 0.3},
-                          mats={'glow': ('_EmissionColor', (0.20, 0.11, 0.04, 1))}),
+EYE_EMO = {  # user-picked concept samples (happy_2, sad_1, angry_1, surprised_1, curious_1, tender_2);
+               # directions follow the audited research, sizes exaggerated so each reads on a phone
+    'eye_happy':     dict(keys={'EYE_PupilDilate': 0.9, 'EYE_HighlightGrow': 1.0, 'EYE_IrisGrow': 0.8},
+                          mats={'hl': ('_EmissionColor', (0.8, 0.8, 0.8, 1)), 'glow': ('_EmissionColor', (0.60, 0.38, 0.10, 1)),
+                                'iris': ('_EmissionColor', (0.24, 0.12, 0.02, 1)), 'specks': ('_Color', (1, 1, 1, 1))}),
+    'eye_sad':       dict(keys={'EYE_PupilDilate': 0.35, 'EYE_HighlightGrow': 0.5},
+                          mats={'white': ('_Color', (1.0, 0.82, 0.84, 1)), 'iris': ('_Color', (0.70, 0.85, 1.0, 1)),
+                                'iris_e': ('_EmissionColor', (0.10, 0.20, 0.38, 1)), 'glow': ('_Color', (0.50, 0.62, 0.95, 0.35)),
+                                'drops': ('_Color', (1, 1, 1, 1)), 'drops_e': ('_EmissionColor', (0.35, 0.4, 0.45, 1)), 'tear': ('_Color', (1, 1, 1, 1)),
+                                'hl': ('_EmissionColor', (0.4, 0.45, 0.55, 1))}),
+    'eye_angry':     dict(keys={'EYE_PupilConstrict': 0.5},
+                          mats={'white': ('_Color', (1.0, 0.80, 0.78, 1)), 'veins': ('_Color', (1, 1, 1, 1)),
+                                'iris': ('_Color', (1.0, 0.50, 0.40, 1)), 'iris_e': ('_EmissionColor', (0.34, 0.04, 0.0, 1)),
+                                'glow': ('_Color', (0.95, 0.22, 0.05, 1)), 'glow_e': ('_EmissionColor', (0.40, 0.05, 0.0, 1)),
+                                'hl': ('_Color', (1, 1, 1, 0.35))}),
+    'eye_surprised': dict(keys={'EYE_PupilDilate': 0.8, 'EYE_HighlightGrow': 0.9},
+                          mats={'star': ('_Color', (1, 1, 1, 1)), 'star_e': ('_EmissionColor', (0.8, 0.75, 0.6, 1)), 'hl': ('_EmissionColor', (0.5, 0.5, 0.5, 1)),
+                                'glow': ('_EmissionColor', (0.35, 0.22, 0.06, 1))}),
+    'eye_curious':   dict(keys={'EYE_PupilDilate': 0.75},
+                          mats={'gems': ('_Color', (1, 1, 1, 1)), 'glow': ('_EmissionColor', (0.40, 0.24, 0.05, 1))}),
+    'eye_tender':    dict(keys={'EYE_PupilDilate': 0.55, 'EYE_IrisGrow': 0.5},
+                          mats={'iris': ('_Color', (1.0, 0.93, 0.85, 1)), 'iris_e': ('_EmissionColor', (0.20, 0.11, 0.06, 1)),
+                                'glow': ('_Color', (1.0, 0.85, 0.68, 0.7)), 'glow_e': ('_EmissionColor', (0.30, 0.18, 0.08, 1)),
+                                'hl': ('_Color', (1, 1, 1, 0.55))}),
 }
+OVERLAYS = [  # tag, texture, source material, draw order, forward nudge (m), scales with
+    ('glow',   'iris_glow.png',   'iris',  -6, 0.00012, 'iris'),
+    ('pupil',  'iris_pupil.png',  'iris',  -5, 0.00024, 'pupil'),
+    ('star',   'iris_star.png',   'iris',  -4, 0.00036, 'pupil'),
+    ('specks', 'iris_specks.png', 'iris',  -4, 0.00036, 'iris'),
+    ('drops',  'iris_drops.png',  'iris',  -4, 0.00036, 'iris'),
+    ('gems',   'iris_gems.png',   'iris',  -4, 0.00036, 'iris'),
+    ('veins',  'white_veins.png', 'white', -7, 0.00006, None),
+    ('tear',   'white_tear.png',  'white', -3, 0.00080, None),
+]
+ALWAYS_ON = {'glow', 'pupil'}
 
 if 'eyes' in stages:
-    layers = json.load(open(os.path.join(os.environ['EYES'], 'eye_layers.json')))
+    E_DIR = os.environ['EYES']
+    layers = json.load(open(os.path.join(E_DIR, 'eye_layers.json')))
     fme = face.data
     mid = {k: next(i for i, m in enumerate(fme.materials) if sub in m.name)
            for k, sub in (('iris', 'EyeIris'), ('hl', 'EyeHighlight'), ('white', 'EyeWhite'))}
     iris_mat, hl_mat, white_mat = fme.materials[mid['iris']], fme.materials[mid['hl']], fme.materials[mid['white']]
-    # 1. layer materials: copies of the iris material with their own textures, drawn before the highlight
-    def layer_mat(name, png, rqo):
-        m = iris_mat.copy(); m.name = f'{iris_mat.name}_{name}'
+
+    def self_emissive(m, im):
+        """emission = factor x its own texture, so an emotion can light a layer up (factor 0 at neutral)"""
+        t = m.vrm_addon_extension.mtoon1
+        t.emissive_texture.index.source = im; t.emissive_factor = [0.0, 0.0, 0.0]
+
+    def layer_mat(tag, png, src, rqo):
+        base = iris_mat if src == 'iris' else white_mat
+        m = base.copy(); m.name = f'{base.name}_{tag}'
         t = m.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
-        im = bpy.data.images.load(os.path.join(os.environ['EYES'], png)); im.name = f'{name}_{char}'; im.pack()
+        im = bpy.data.images.load(os.path.join(E_DIR, png)); im.name = f'{tag}_{char}'; im.pack()
         t.pbr_metallic_roughness.base_color_texture.index.source = im
         x.shade_multiply_texture.index.source = im
         t.alpha_mode = 'BLEND'; x.render_queue_offset_number = rqo; x.transparent_with_z_write = False
+        if tag not in ALWAYS_ON: t.pbr_metallic_roughness.base_color_factor = [1.0, 1.0, 1.0, 0.0]   # hidden until called
+        self_emissive(m, im)
         fme.materials.append(m); return m, len(fme.materials) - 1
-    replace_pixels(iris_mat.vrm_addon_extension.mtoon1.pbr_metallic_roughness.base_color_texture.index.source,
-                   os.path.join(os.environ['EYES'], 'iris_base.png'))
-    glow_mat, gi = layer_mat('IrisGlow', 'iris_glow.png', -3)
-    pupil_mat, pi = layer_mat('Pupil', 'iris_pupil.png', -2)
-    # 2. duplicate the iris faces twice, nudged toward the camera (local +Y), in every shape-key layer
+
+    iris_img = iris_mat.vrm_addon_extension.mtoon1.pbr_metallic_roughness.base_color_texture.index.source
+    replace_pixels(iris_img, os.path.join(E_DIR, 'iris_base.png'))
+    tint_img = bpy.data.images.load(os.path.join(E_DIR, 'iris_tintmask.png')); tint_img.name = f'tintmask_{char}'; tint_img.pack()
+    self_emissive(iris_mat, tint_img)          # the whole-iris wash: emission = factor x a bottom-weighted mask
+    mats = {tag: layer_mat(tag, png, src, rqo) for tag, png, src, rqo, dy, sc in OVERLAYS}
+
     bm = bmesh.new(); bm.from_mesh(fme); bm.faces.ensure_lookup_table()
-    iris_faces = [f for f in bm.faces if f.material_index == mid['iris']]
+    src_faces = {k: [f for f in bm.faces if f.material_index == mid[k]] for k in ('iris', 'white')}
+    iris_faces = src_faces['iris']
     skl = bm.verts.layers.shape
     uvl = bm.loops.layers.uv.active
     def uv_to_local(u, v):
@@ -337,11 +371,11 @@ if 'eyes' in stages:
         raise ValueError('uv not on iris')
     piv = {s: dict(iris=uv_to_local(*layers[s]['iris_c']), pupil=uv_to_local(*layers[s]['pupil_c'])) for s in ('left', 'right')}
     new_sets = {}
-    for tag, mi, dy in (('glow', gi, 0.00012), ('pupil', pi, 0.00024)):
-        ret = bmesh.ops.duplicate(bm, geom=iris_faces)
+    for tag, png, src, rqo, dy, sc in OVERLAYS:
+        ret = bmesh.ops.duplicate(bm, geom=src_faces[src])
         fs = [g for g in ret['geom'] if isinstance(g, bmesh.types.BMFace)]
         vs = [g for g in ret['geom'] if isinstance(g, bmesh.types.BMVert)]
-        for f in fs: f.material_index = mi
+        for f in fs: f.material_index = mats[tag][1]
         for v in vs:
             v.co.y += dy
             for lay in skl.values(): v[lay].y += dy
@@ -351,7 +385,6 @@ if 'eyes' in stages:
     iris_idx = sorted({v.index for f in iris_faces for v in f.verts})
     hl_idx = sorted({v.index for f in bm.faces if f.material_index == mid['hl'] for v in f.verts})
     bm.to_mesh(fme); bm.free(); fme.update()
-    # 3. shape keys: scale in the eye plane (local x, z) about each eye's own pivot
     B = [v.co.copy() for v in fme.vertices]
     def side_of(i, ref): return min(piv, key=lambda s: (B[i] - piv[s][ref]).length)
     def add_key(name, idx, s, ref):
@@ -363,21 +396,22 @@ if 'eyes' in stages:
     hlp = [B[i] for i in hl_idx]
     hl_c = [sum((p for p in hlp if p.x > 0), Vector()) / max(1, sum(1 for p in hlp if p.x > 0)),
             sum((p for p in hlp if p.x <= 0), Vector()) / max(1, sum(1 for p in hlp if p.x <= 0))]
-    add_key('EYE_PupilDilate', new_idx['pupil'], 1.45, 'pupil')
-    add_key('EYE_PupilConstrict', new_idx['pupil'], 0.62, 'pupil')
-    add_key('EYE_IrisGrow', iris_idx + new_idx['glow'] + new_idx['pupil'], 1.07, 'iris')
-    add_key('EYE_HighlightGrow', hl_idx, 1.35, 'hl')
-    # 4. eye expressions: shape-key binds + material binds
+    by_pupil = [i for tag, *_, sc in OVERLAYS if sc == 'pupil' for i in new_idx[tag]]
+    by_iris = [i for tag, *_, sc in OVERLAYS if sc in ('iris', 'pupil') for i in new_idx[tag]]
+    add_key('EYE_PupilDilate', by_pupil, 1.8, 'pupil')
+    add_key('EYE_PupilConstrict', by_pupil, 0.55, 'pupil')
+    add_key('EYE_IrisGrow', iris_idx + by_iris, 1.12, 'iris')
+    add_key('EYE_HighlightGrow', hl_idx, 1.6, 'hl')
     bsm = ext.vrm0.blend_shape_master
-    matmap = {'hl': hl_mat, 'glow': glow_mat, 'white': white_mat, 'pupil': pupil_mat}
+    matmap = {'hl': hl_mat, 'white': white_mat, 'iris': iris_mat, **{k: v[0] for k, v in mats.items()}}
     for gname, spec in EYE_EMO.items():
         g = bsm.blend_shape_groups.add(); g.name = gname; g.preset_name = 'unknown'
         for key, w in spec['keys'].items():
             b = g.binds.add(); b.mesh.mesh_object_name = face.name; b.index = key; b.weight = w
         for mk, (prop, val) in spec['mats'].items():
-            mv = g.material_values.add(); mv.material = matmap[mk]; mv.property_name = prop
+            mv = g.material_values.add(); mv.material = matmap[mk.split('_')[0]]; mv.property_name = prop
             for c in val: mv.target_value.add().value = c
-    log('eyes', f'layers glow/pupil +{len(new_idx["glow"]) + len(new_idx["pupil"])} verts',
+    log('eyes', f'{len(OVERLAYS)} layers +{sum(len(v) for v in new_idx.values())} verts',
         f'{len(EYE_EMO)} eye expressions', 'pivots mm', {s: tuple(round(x * 1000, 1) for x in piv[s]['pupil']) for s in piv})
 
 

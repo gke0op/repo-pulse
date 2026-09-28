@@ -61,6 +61,13 @@ comp = comp * (1 - pupil_a[..., None]) + pupil_rgb * pupil_a[..., None]
 err = np.abs(comp - rgb)[op].mean()
 save = lambda arr, al_, n: Image.fromarray((np.clip(np.dstack([arr, al_]), 0, 1) * 255 + 0.5).astype(np.uint8), 'RGBA').save(f'{outd}/{n}')
 save(base, al, 'iris_base.png'); save(rgb, glow_a * op, 'iris_glow.png'); save(pupil_rgb, pupil_a * op, 'iris_pupil.png')
+# spark: a soft shine inside the pupil (upper-left) and a tiny second one (lower-right)
+spark = np.zeros((H, W), np.float32)
+for side, (pcx, pcy, prx, pry) in info['pupil_ellipse_px'].items():
+    for ox, oy, rr, k in ((-0.28, -0.30, 0.26, 1.0), (0.32, 0.28, 0.11, 0.8)):
+        d = np.hypot((xx - (pcx + ox * prx)) / (rr * prx), (yy - (pcy + oy * pry)) / (rr * prx))
+        spark = np.maximum(spark, k * np.clip(1.25 - d, 0, 1) ** 1.5)
+save(np.ones_like(rgb), np.clip(spark, 0, 1) * op, 'iris_spark.png')
 json.dump(info, open(f'{outd}/eye_layers.json', 'w'), indent=1)
 print('composite error (mean abs, opaque texels):', round(float(err), 4))
 print(json.dumps(info))
