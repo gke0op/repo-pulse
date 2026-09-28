@@ -30,6 +30,12 @@ class SelfReportTest {
         assertTrue(t.line(snap())!!.contains("2 days ago"))
     }
 
+    @Test fun notesWithoutAStampMeanEarlierTalksNotNone() {
+        val s = snap()
+        assertTrue(SelfReport.Tracker().line(s.copy(sinceLastTalkMs = null))!!.contains("you have talked with the user before (when is unknown)"))
+        assertTrue(SelfReport.Tracker().line(s.copy(sinceLastTalkMs = null, notes = 0, wishes = 0))!!.contains("this is your first conversation with the user"))
+    }
+
     @Test fun agoReadsNaturally() {
         assertEquals("just now", SelfReport.ago(30_000))
         assertEquals("45 minutes ago", SelfReport.ago(45 * 60_000L))

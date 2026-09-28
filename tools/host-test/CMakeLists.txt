@@ -42,3 +42,7 @@ if(ORT_DIR)
     target_link_libraries(turn_eval PRIVATE onnxruntime)
     set_target_properties(turn_eval PROPERTIES BUILD_RPATH ${ORT_DIR}/lib)
 endif()
+
+add_executable(distill_eval distill_eval.cpp ${APP_CPP}/llm_engine.cpp)
+target_include_directories(distill_eval PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
+target_link_libraries(distill_eval PRIVATE llama llama-common)

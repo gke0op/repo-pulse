@@ -14,8 +14,8 @@ import java.io.File
  * ambiguous audio moves by up to ~0.3 across ORT versions, stable on clear cases, hence [THRESHOLD].
  */
 object TurnDetector {
-    /** A/B: false in build A, true in build B-turn (branch ab/turn). */
-    const val ENABLED = false
+    /** On since 0.15.3 (B-all round: turns cut off before a word 27-30% -> 11%). */
+    const val ENABLED = true
     /** Only a confident "done" ends the turn early; anything less waits for the silence rule as before. */
     const val THRESHOLD = 0.9f
 

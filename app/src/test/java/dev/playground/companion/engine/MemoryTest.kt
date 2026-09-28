@@ -54,4 +54,25 @@ class MemoryTest {
     }
 
     @Test fun emptyNotesGiveNoPromptBlock() = assertEquals("", Memory.promptBlock(emptyList()))
+
+    @Test fun distillOrderServesTheLongestWaitingFirst() {
+        val dir = java.nio.file.Files.createTempDirectory("mem").toFile()
+        val store = MemoryStore(dir)
+        store.markTried("girl", 2_000)
+        store.markTried("machine", 1_000)
+        // Never tried (boy) first, then the one tried longest ago; a fixed order starved the rest.
+        assertEquals(listOf("boy", "machine", "girl"), store.distillOrder(listOf("girl", "boy", "machine")))
+        store.markTried("boy", 3_000)   // tried, even if it was paused or failed: goes to the back
+        assertEquals(listOf("machine", "girl", "boy"), store.distillOrder(listOf("girl", "boy", "machine")))
+        dir.deleteRecursively()
+    }
+
+    @Test fun wishLogNeverForgetsAndSkipsNearDuplicates() {
+        val dir = java.nio.file.Files.createTempDirectory("mem").toFile()
+        val store = MemoryStore(dir)
+        store.logWishes("machine", listOf("To see snow for the first time."), "2026-09-28")
+        store.logWishes("machine", listOf("to see snow for the first time", "To learn the names of the stars."), "2026-09-29")
+        assertEquals(listOf("To see snow for the first time.", "To learn the names of the stars."), store.wishLog("machine"))
+        dir.deleteRecursively()
+    }
 }

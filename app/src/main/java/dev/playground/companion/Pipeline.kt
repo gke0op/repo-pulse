@@ -411,19 +411,24 @@ class Pipeline(
         llmExec.execute {
             val report = mutableListOf<String>()
             run all@{
-                for (c in CHARACTERS) {
+                val order = memory.distillOrder(CHARACTERS.map { it.id })
+                for (c in CHARACTERS.sortedBy { order.indexOf(it.id) }) {
                     var notes = memory.notes(c.id)
-                    for ((conversation, n) in Memory.chunks(memory.pending(c.id), c.name)) {
+                    chunks@ for ((conversation, n) in Memory.chunks(memory.pending(c.id), c.name)) {
                         if (stops != since) { report += "${c.name}: paused (you came back)"; return@all }
+                        memory.markTried(c.id)
+                        val t0 = SystemClock.elapsedRealtime()
                         val out = NativeLlm.completeIsolated(DISTILL_SYSTEM, Memory.fill(distillTemplate, c.name, notes, conversation), 250, 4096)
-                        if (stops != since) { report += "${c.name}: paused (you came back)"; return@all }
+                        val secs = (SystemClock.elapsedRealtime() - t0) / 1000
+                        if (stops != since) { report += "${c.name}: paused (you came back, ${secs} s into a chunk)"; return@all }
                         // Failed (no memory for a scratch context, too long, ...): keep the exchanges for next time.
-                        if (out == null) { report += "${c.name}: couldn't distill, kept for next time"; return@all }
+                        if (out == null) { report += "${c.name}: couldn't distill, kept for next time"; break@chunks }
                         val added = Memory.parse(out)
                         notes = Memory.merge(notes, added)
                         memory.saveNotes(c.id, notes)
+                        memory.logWishes(c.id, added.filter { it.tag == Memory.Tag.WISH }.map { it.text }, java.time.LocalDate.now().toString())
                         memory.consume(c.id, n)
-                        report += "${c.name} +${added.size}" + added.joinToString("") { "\n  $it" }
+                        report += "${c.name} +${added.size} (${n} exchanges in ${secs} s)" + added.joinToString("") { "\n  $it" }
                     }
                 }
             }
@@ -431,12 +436,15 @@ class Pipeline(
         }
     }
 
+    fun hasUnremembered(): Boolean = CHARACTERS.any { memory.pending(it.id).isNotEmpty() }
+
     /** Everything each character remembers, for the Models menu. */
     fun memoryReport(): String = CHARACTERS.joinToString("\n\n") { c ->
         val notes = memory.notes(c.id)
         val waiting = memory.pending(c.id).size
         "${c.name}${if (waiting > 0) " ($waiting exchanges not remembered yet)" else ""}\n" +
-            (if (notes.isEmpty()) "  nothing yet" else notes.joinToString("\n") { "  $it" })
+            (if (notes.isEmpty()) "  nothing yet" else notes.joinToString("\n") { "  $it" }) +
+            memory.wishLog(c.id).let { log -> if (log.isEmpty()) "" else "\n  every wish so far (${log.size}):" + log.joinToString("") { "\n    $it" } }
     }
 
     /** Runs the voice benchmark on the LLM thread so it never overlaps a turn. */
@@ -567,7 +575,8 @@ class Pipeline(
     }
 
     companion object {
-        const val N_CTX = 2048
+        /** 2048 left Unit Seven ~4 exchanges beside his ~1,400-token prompt (notes + self-knowledge); ~+285 MB KV. */
+        const val N_CTX = 4096
         const val LLM_THREADS = 4
         /** llama-bench on S24 Ultra, Gemma 3 4B pp256: 4 threads 51.4 tok/s, 6 threads 44.8, 8 threads 50.5. */
         const val LLM_BATCH_THREADS = 4
@@ -578,9 +587,9 @@ class Pipeline(
         /**
          * A/B "voice first": pause generation while the first chunk synthesizes. Mac M3: Supertonic
          * synth 330 ms alone vs 1,136 ms beside 4-thread Gemma generation; the phone's first-chunk
-         * synth is ~1.2 s. Off in build A, on in build B (branch ab/voice-first).
+         * synth is ~1.2 s. On since 0.15.3 (phone B-all round: first-chunk synth ~10% faster, no harm seen).
          */
-        const val VOICE_FIRST = false
+        const val VOICE_FIRST = true
         const val DISTILL_SYSTEM = "You write memory notes. Follow the format exactly."
 
     }

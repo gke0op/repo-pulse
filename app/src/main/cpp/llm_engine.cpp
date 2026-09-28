@@ -103,6 +103,10 @@ std::string LlmEngine::render_text(const std::vector<common_chat_msg> & msgs, bo
     in.messages              = msgs;
     in.add_generation_prompt = add_generation_prompt;
     in.use_jinja             = true;
+    // llama.cpp defaults this to true, which puts Gemma 4's <|think|> switch in every prompt: memory
+    // distillation then spent its whole budget in a thought channel and the notes it restated there
+    // were parsed as new ones (phone 2026-09-29). Replies only escaped it through the "[" prefill.
+    in.enable_thinking       = false;
     return common_chat_templates_apply(templates_.get(), in).prompt;
 }
 
@@ -191,11 +195,18 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
         msgs_.push_back(user);
     }
 
-    // On overflow, trim the oldest exchanges (never the system prompt) down to 3/4 of the
-    // context; shift_out_dropped then reuses the kept history instead of re-decoding it.
+    // On overflow, trim the oldest exchanges (never the system prompt) until half of the room
+    // history can have is free again; shift_out_dropped then reuses the kept history instead of
+    // re-decoding it. (A fixed 3/4-of-context target sat below Unit Seven's ~1,400-token system
+    // prompt, so every trim dropped the whole conversation: phone 2026-09-29.)
     auto prompt = render(true);
     const bool overflow = (int) prompt.size() + max_tokens > n_ctx_;
-    while (overflow && (int) prompt.size() + max_tokens > n_ctx_ * 3 / 4 && msgs_.size() > 2) {
+    int target = n_ctx_ * 3 / 4;
+    if (overflow) {
+        const int base = (int) common_tokenize(ctx_, render_text({msgs_.front(), msgs_.back()}, true), true, true).size();
+        target = base + max_tokens + (n_ctx_ - max_tokens - base) / 2;
+    }
+    while (overflow && (int) prompt.size() + max_tokens > target && msgs_.size() > 2) {
         // Drop the oldest exchange, then anything up to the next user turn.
         msgs_.erase(msgs_.begin() + 1);
         while (msgs_.size() > 2 && msgs_[1].role != "user") msgs_.erase(msgs_.begin() + 1);

@@ -97,6 +97,30 @@ class MemoryStore(private val dir: File) {
         }
     }
 
+    /**
+     * [ids] in the order to distill them: longest-untried first (never tried first). A fixed order
+     * starved the later characters: you came back while the first one was still distilling, every
+     * time (phone 2026-09-28: Unit Seven's notes stuck at 05:40, 92 exchanges waiting, only "Mira:
+     * paused" in the logs). By attempt, not success, so a chunk that keeps being paused or failing
+     * can't hog the front either (review 2026-09-29).
+     */
+    @Synchronized fun distillOrder(ids: List<String>): List<String> = ids.sortedBy { triedAt(it) }
+    @Synchronized fun markTried(id: String, at: Long = System.currentTimeMillis()) = File(dir, "$id.tried").writeText(at.toString())
+    private fun triedAt(id: String) = File(dir, "$id.tried").takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull() ?: 0L
+
+    /**
+     * Every wish a character ever had, append-only (<id>.wishes.txt, "yyyy-MM-dd<TAB>wish"). The notes
+     * keep only the latest few, so one big backlog pushed out all of Unit Seven's older
+     * wishes (phone 2026-09-29); this log never forgets. Near-duplicates are not logged twice.
+     */
+    @Synchronized fun logWishes(id: String, wishes: List<String>, day: String) {
+        val log = wishLog(id).toMutableList()
+        val f = File(dir, "$id.wishes.txt")
+        for (w in wishes) if (log.none { Memory.similar(it, w) }) { f.appendText("$day\t$w\n"); log += w }
+    }
+    @Synchronized fun wishLog(id: String): List<String> = File(dir, "$id.wishes.txt").takeIf { it.exists() }
+        ?.readLines()?.mapNotNull { it.substringAfter('\t', "").ifBlank { null } }.orEmpty()
+
     /** When the user last heard a reply from character [id] (epoch ms), or null. */
     @Synchronized fun lastTalked(id: String): Long? = File(dir, "$id.last").takeIf { it.exists() }?.readText()?.trim()?.toLongOrNull()
     @Synchronized fun touch(id: String, at: Long = System.currentTimeMillis()) = File(dir, "$id.last").writeText(at.toString())

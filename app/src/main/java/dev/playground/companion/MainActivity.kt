@@ -48,6 +48,8 @@ class MainActivity : Activity(), Pipeline.Listener {
     private lateinit var micButton: Button
     private var ears: Ears? = null
     @Volatile private var micOn = false
+    /** The mic was on when you left: it listens again when you come back. */
+    private var micPausedAway = false
     private val charButtons = mutableListOf<Button>()
     private val prefs by lazy { getSharedPreferences("companion", MODE_PRIVATE) }
     private var liveTurn = -1
@@ -563,10 +565,26 @@ class MainActivity : Activity(), Pipeline.Listener {
         governor.start()
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (micPausedAway) { micPausedAway = false; toggleMic() }
+    }
+
     override fun onStop() {
         super.onStop()
+        // Not listening while you're away: a sound in the room as you left was taken as your voice
+        // and cancelled the remembering 1 s in (phone 2026-09-29 02:35). micOn off first, so a
+        // second pass still in flight is ignored too.
+        if (micOn) { toggleMic(); micPausedAway = true }
         // Leaving the app: a good moment for the characters to remember today's conversation.
-        if (::pipeline.isInitialized) pipeline.remember { summary -> if (summary.isNotEmpty()) log.event("remembered: $summary") }
+        // A foreground service keeps it on the fast cores and alive (RememberService).
+        if (::pipeline.isInitialized && pipeline.hasUnremembered()) {
+            val fast = RememberService.start(this)
+            pipeline.remember { summary ->
+                runOnUiThread { RememberService.stop() }
+                if (summary.isNotEmpty()) log.event("remembered: $summary" + if (fast) "" else " (background, slow)")
+            }
+        }
     }
 
     override fun onDestroy() {

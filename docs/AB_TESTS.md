@@ -101,6 +101,56 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   needs a check that it's *your* voice (see research report).
 - **Branch:** `ab/turn` (one commit: `TurnDetector.ENABLED = true` + version).
 
+## Verdict: the B-all round (0.15.2-B-all, 2026-09-28 18:32 and 20:09, 52 turns) -> all four on in 0.15.3
+
+Caveat: every B-all turn ran on Gemma 4 E2B and every A turn on Gemma 3 4B, so only results the
+brain can't explain count.
+
+- **Smart Turn: keep.** Turns cut off before a word was heard (you went on talking): A 27-30% of your
+  turns (15:05, 16:01, 16:51), B-all **11%** (7/65). It waited on real mid-sentence pauses (P(done)
+  0.01-0.3). Ending early didn't speed anything up (median you-stopped -> voice 4.20 s early vs 4.24 s
+  waited): the early start already hides the wait. Threshold 0.9 stays.
+- **Voice first: keep.** First-chunk synth 1.13 vs 1.27 s (Mira), 1.23 vs 1.39 s (Seven), ~10%. It
+  only engages when cool, so its first-audio gain (3.1 vs 3.5 s) is confounded with heat.
+- **Brief: keep (harmless).** Replies ~26 tok vs 36-44 on A, but E2B alone was already short; the
+  "at least 500 tokens" dare still got a long answer.
+- **Seven sees the machine: keep.** Named his new brain right from the readings; spoke no numbers,
+  so the invented-number score is still open.
+
+Found on the way (fixed in 0.15.3):
+- **No memory had been distilled since the morning.** `remember()` always began with Mira and every
+  return cancelled her chunk; Unit Seven (notes 05:40, 92 exchanges waiting) and Kai never got a turn.
+  In the background the app ran in the background cpuset (cores 0-1,5-6): one 6000-char chunk took
+  ~3.5 min, and the 3 GB process was killed while you were away (20:09 started with a fresh LOAD).
+  Now: longest-unserved character first, and a foreground service while distilling (foreground-boost
+  cpuset, not killed). Phone: 80-110 s per chunk, Seven's whole backlog in ~6 min.
+- **Gemma 4 thought out loud in every prompt.** llama.cpp defaults `enable_thinking` to true, which
+  puts `<|think|>` in Gemma 4's system turn. Distillation spent all 250 tokens in a thought channel;
+  the notes it restated there parsed as "new" notes and squashed Seven's four wishes into one line
+  (notes restored from this session's copies, backlogs rebuilt from the session logs). Off now, for
+  replies too (they had escaped only through the "[" prefill). Mac, Seven's real backlog, 5 chunks
+  (`distill_eval`): thinking on, 0 notes; off, 22 plausible new notes; Gemma 3 4B also leaked dialogue
+  lines into its notes. Recall with his real notes, 3 samples: "what did you wish for?" named the
+  real wishes 0/3 with thinking on, 2/3 off; a specific wish asked about by name 3/3 both; invented
+  dog 0/3 both. Gemma 3 4B invented a wish that isn't in the notes 3/3. Raw: `host-test-results/distill_2026-09-29_*`, `recall_2026-09-29_*`.
+  E2B replies without the think switch: untested on the phone.
+- **One big backlog evicted every older wish** (notes keep the 5 latest): Seven lost all four of
+  his older wishes, Mira three of hers. New append-only
+  `<id>.wishes.txt` (every wish so far, shown under Models -> Memories), backfilled on the phone.
+  Whether old wishes should stay in the *active* notes (cap 5) is still the person's call.
+- Review (subagent, 2026-09-29): distill order is by last *attempt* (a paused or failing chunk can't
+  hog the front), one character's failure no longer blocks the others, the service stops by start id
+  and handles Android 15's `onTimeout`. Its "thinking off breaks KV reuse" finding doesn't apply: the
+  E2B GGUF's template adds no empty thought channel to the generation prompt.
+- **Every trim dropped the whole conversation** (phone 2026-09-29 02:22, after 4 exchanges with Seven:
+  "shift kept 0 tok"). His system prompt (notes + self-knowledge) had grown to ~1,400 tokens of the
+  2048 context, and the fixed trim target (3/4 of the context, 400 reserved for the reply) sat below
+  it. Now: context 4096 (+~285 MB KV; RSS after load 5.2 GB, 3.3 GB still free) and a trim that frees
+  half of the history room instead of a fixed target. `drift_eval` (N_CTX env) on his 33 real lines
+  with his real prompt: 2048 trimmed every 3-5 turns keeping 60-170 tok; 4096 never trimmed.
+- **The mic listened after you left**, and a sound as you closed the app cancelled the remembering
+  1 s in. The mic now pauses in `onStop` and comes back in `onStart`. Untested on the phone.
+
 ## Measured and rejected (no A/B needed)
 
 - **Fewer denoising steps** for Supertonic: synth 305 ms (5 steps) -> 231 (4) -> 202 (3) -> 136 (2)

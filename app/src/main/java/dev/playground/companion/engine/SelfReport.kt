@@ -9,8 +9,8 @@ package dev.playground.companion.engine
  * He may know that Mira and Kai exist and when the user last talked to them, not what was said.
  */
 object SelfReport {
-    /** A/B: false in build A, true in build B-seven (branch ab/seven). */
-    const val ENABLED = false
+    /** On since 0.15.3 (the person's choice after the B-seven round). */
+    const val ENABLED = true
     const val CHARACTER_ID = "machine"
 
     /** Standing knowledge for his system prompt. Every sentence must stay true of the app. */
@@ -54,7 +54,13 @@ object SelfReport {
             val parts = mutableListOf<String>()
             proposedFirst = !sentFirst
             if (proposedFirst) {
-                parts += if (s.sinceLastTalkMs == null) "this is your first conversation with the user" else "you last talked with the user ${ago(s.sinceLastTalkMs)}"
+                parts += when {
+                    s.sinceLastTalkMs != null -> "you last talked with the user ${ago(s.sinceLastTalkMs)}"
+                    // Stamps began in 0.14.9: notes without a stamp mean earlier talks, not none
+                    // (phone 2026-09-28 16:01: "I recognize the readings, but not you").
+                    s.notes > 0 -> "you have talked with the user before (when is unknown)"
+                    else -> "this is your first conversation with the user"
+                }
                 for ((name, ms) in s.others) parts += if (ms == null) "the user hasn't talked with $name yet" else "the user last talked with $name ${ago(ms)}"
                 parts += "you hold ${s.notes} memory notes, ${s.wishes} of them wishes"
                 s.tokPerSec?.let { parts += "your last reply came at %.1f tokens per second".format(it) }
