@@ -48,7 +48,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   in the transcript and in memory stay as you said them.
 - **Why:** replies drift longer as a talk deepens (phone, last night: 26 -> 45 -> 60 -> 72 tokens by
   quarter), and long replies are what stall a hot phone mid-reply. Replaying your 95 real lines to
-  Mira on the Mac (`tools/host-test/drift_eval`, raw output in `tools/host-test/results/drift_*`):
+  Mira on the Mac (`tools/host-test/drift_eval`, raw output in `~/Desktop/companion/host-test-results/drift_*`, local only):
 
   | variant | median tokens by quarter | total | normal replies > 80 tok | poem requests |
   |---|---|---|---|---|
@@ -69,7 +69,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   message when they change: heat (in words), battery level and temperature, the app's RAM, his
   reply speed, trims, when you last talked with him / Mira / Kai, how many memories and wishes he
   holds. Read-only by construction: text the app already has, no tools.
-- **Mac evidence** (Gemma 3 4B, app's exact prompt + his real notes; raw in `tools/host-test/results/2026-09-28_seven_*`):
+- **Mac evidence** (Gemma 3 4B, app's exact prompt + his real notes; raw in `~/Desktop/companion/host-test-results/2026-09-28_seven_*`, local only):
   without it he said he lives in "a server farm"; with it, "entirely contained within this device.
   It's… a limited space." A trimmed reading gives "my memory is now quite empty of our initial
   exchange today". Invented numbers took four prompt rounds: v1 "28 degrees Celsius", "3.7 GB";
@@ -111,7 +111,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   three sessions (few replies are long enough to matter).
 - **Memory invents details** (fixed in both A and B, 0.14.1): with the app's exact prompt and tonight's
   real notes, 3 samples per question (`tools/host-test/recall_eval`, `recall_questions.txt`,
-  raw answers in `tools/host-test/results/`). Inventions on questions the notes can't answer:
+  raw answers in `~/Desktop/companion/host-test-results/`, local only). Inventions on questions the notes can't answer:
   no memory 9, notes v1 11, v2 7, **v3 3** (the memory block now says the notes are all she
   remembers, and that general memories have no details). Recall of what *is* in the notes went
   up, not down. Left over: "What did we say we'd bake?" still gets an invented recipe (3/3); a v4

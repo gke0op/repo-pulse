@@ -19,3 +19,6 @@ web/avatar/node_modules/
 
 # Python
 __pycache__/
+
+# Eval results quote private conversations: kept locally in ~/Desktop/companion/host-test-results/
+tools/host-test/results/

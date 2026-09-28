@@ -39,7 +39,7 @@ renaming). The phone runs **0.15.2-B-all**. Every build is in `~/Desktop/compani
     with `DumpPromptsTest`, see README).
   - `memory_eval`: distills a phone log into notes.
   - `turn_eval`: the app's Smart Turn C++ vs the Python reference.
-  - Raw results of my runs: `tools/host-test/results/`.
+  - Raw results of my runs: `~/Desktop/companion/host-test-results/` (local only: they quote private conversations).
 - **Phone benchmarks:** `llama-bench` built with the app's flags lives in `/data/local/tmp/lb`
   (needs `libomp.so` + `libc++_shared.so` next to it).
 - The scratchpad gets cleaned: keep anything worth keeping in the repo or `~/Desktop/companion/`.
