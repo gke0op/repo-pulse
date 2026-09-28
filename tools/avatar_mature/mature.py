@@ -2,6 +2,7 @@
 # blender --background --python mature.py -- <char> <in.vrm> <out.vrm> <tops.png> <islands.json> [stages]
 # stages: comma list of wardrobe,proportions,face (default all)
 import bpy, bmesh, sys, json, math
+import numpy as np
 from mathutils import Vector
 
 a = sys.argv[sys.argv.index('--') + 1:]
@@ -243,6 +244,75 @@ if 'identity' in stages:
         else:
             continue
         log('colour', m.name)
+
+
+# ---------------------------------------------------------------- hair: our own, replacing VRoid's
+if 'hair' in stages:
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import hairgen
+    # 1. old hair out: mesh, its HairJoint bones and their spring groups
+    bpy.data.objects.remove(hair)
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    sa = ext.vrm0.secondary_animation
+    for i in reversed(range(len(sa.bone_groups))):
+        if any(b.bone_name.startswith('HairJoint') for b in sa.bone_groups[i].bones):
+            sa.bone_groups.remove(i)
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='EDIT')
+    dead = [eb for eb in arm.data.edit_bones if eb.name.startswith('HairJoint')]
+    for eb in dead: arm.data.edit_bones.remove(eb)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    log('old hair removed', f'{len(dead)} bones', f'{len(sa.bone_groups)} spring groups left')
+
+    # 2. landmarks
+    fM = face.matrix_world
+    def zs(sub):
+        ids = {i for i, m in enumerate(face.data.materials) if sub in m.name}
+        return [(fM @ face.data.vertices[v].co) for p in face.data.polygons if p.material_index in ids for v in p.vertices]
+    bM = body.matrix_world
+    capi = {i for i, m in enumerate(body.data.materials) if 'HairBack' in m.name}
+    capv = [bM @ body.data.vertices[v].co for p in body.data.polygons if p.material_index in capi for v in p.vertices]
+    C = sum(capv, Vector()) / len(capv)
+    skin = zs('Face_00_SKIN')
+    L = dict(C=C, brow_z=sum(p.z for p in zs('FaceBrow')) / len(zs('FaceBrow')),
+             chin_z=min(p.z for p in skin if abs(p.x) < 0.006))
+    log('hair landmarks', tuple(round(x, 3) for x in C), 'brow', round(L['brow_z'], 3), 'chin', round(L['chin_z'], 3))
+
+    # 3. grow
+    hmat = next(m for m in bpy.data.materials if m.name.endswith('HAIR_01') and 'Outline' not in m.name)
+    newhair, kinds, tris, strands = hairgen.build(char, arm, human['head'], [face, body], 'HairBack', hmat, L,
+                                         n_strands={'mira': 330, 'kai': 380}[char], seed={'mira': 5, 'kai': 9}[char])
+    meshes.append(newhair)
+    log('hair grown', kinds, f'{tris} tris')
+    nch, nb = hairgen.rig(char, arm, human['head'], newhair, strands, C, sa,
+                          {human['neck'], human.get('upperChest', human['chest'])})   # not the head: chains start inside it
+    log('hair rigged', f'{nch} spring chains', f'{nb} bones')
+
+    # 4. our hair textures; flat normals; the cap takes a plain hair value
+    t = hmat.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
+    base_img = t.pbr_metallic_roughness.base_color_texture.index.source
+    base, ring = hairgen.hair_textures(*base_img.size)
+    base_img.pixels.foreach_set(np.flipud(base).astype(np.float32).ravel()); base_img.update(); base_img.pack()
+    em = t.emissive_texture.index.source
+    if em is not None and tuple(em.size) == tuple(base_img.size):
+        em.pixels.foreach_set(np.flipud(ring).astype(np.float32).ravel()); em.update(); em.pack()
+    t.emissive_factor = [c * 0.45 for c in lin(PALETTE['hair'])]
+    for m in bpy.data.materials:
+        if '_HAIR' not in m.name or 'Outline' in m.name: continue
+        mt = m.vrm_addon_extension.mtoon1
+        nimg = mt.normal_texture.index.source
+        if nimg is not None:
+            flat = np.zeros((nimg.size[1], nimg.size[0], 4), np.float32); flat[...] = (0.5, 0.5, 1.0, 1.0)
+            nimg.pixels.foreach_set(flat.ravel()); nimg.update(); nimg.pack()
+        if 'HairBack' in m.name:
+            bimg = mt.pbr_metallic_roughness.base_color_texture.index.source
+            a = np.array(bimg.pixels[:], np.float32).reshape(bimg.size[1], bimg.size[0], 4)
+            a[..., :3] = 0.68                    # the under-cap sits just below the hair's own value
+            bimg.pixels.foreach_set(a.ravel()); bimg.update(); bimg.pack()
+        m.use_backface_culling = False
+        if hasattr(mt, 'double_sided'): mt.double_sided = True
+    log('hair textures ours')
 
 
 # ---------------------------------------------------------------- export

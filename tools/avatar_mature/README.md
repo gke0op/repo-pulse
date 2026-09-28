@@ -17,7 +17,7 @@ $B --background --python mature.py -- kai orig/kai.vrm ../../models/avatar/kai.v
 # 3b. our own eyes/brows/lashes/face marks, drawn in millimetres on the face (then ART=<dir> for mature.py)
 $B --background --python dump_face_uv.py -- ../../models/avatar/kai.vrm faceuv_kai.json
 python3 face_art.py kai faceuv_kai.json <extracted textures dir> art_kai
-ART=art_kai $B --background --python mature.py -- kai orig/kai.vrm ../../models/avatar/kai.vrm tops_kai.png isl_kai.json wardrobe,proportions,face,identity
+ART=art_kai $B --background --python mature.py -- kai orig/kai.vrm ../../models/avatar/kai.vrm tops_kai.png isl_kai.json wardrobe,proportions,face,identity,hair
 # 4. verify budgets, blend-shape binds, bones, lookAt, meta
 python3 ../vrm_check.py ../../models/avatar/*.vrm
 ```
@@ -36,3 +36,8 @@ What `mature.py` does (per-character numbers in `P`):
   eyes) on the MToon factors, and our own iris, highlight, eyeline, lash, brow and face-skin
   textures from `face_art.py` (VRoid's lash spikes, iris, highlights and nose tick are gone;
   Mira has a beauty mark). Everything drawn is procedural, no third-party art.
+- **hair** (`hairgen.py`): VRoid's hair mesh, its HairJoint bones and spring groups are removed;
+  new hair grows from roots on the scalp cap as tapered ribbons that follow the head (upper strands
+  lie over lower ones), with our own strand texture. Mira: chin-length side-swept bob, 12 spring
+  chains (3 bones each, bangs pinned, neck/chest colliders). Kai: short textured cut with a
+  swept fringe, rigid (no springs). Deterministic: fixed seeds per character.
