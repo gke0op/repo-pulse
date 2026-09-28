@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { ProceduralEye } from './eye.js';
 
 const MODELS = { girl: 'models/mira.vrm', boy: 'models/kai.vrm' };
 // Emotion A/B (avatar.setProfile): A = subtle, capped where VRoid shapes start fighting
@@ -19,6 +20,7 @@ const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 export class VrmAvatar {
   constructor(scene, id) {
+    this.id = id;
     this.group = new THREE.Group();
     scene.add(this.group);
     this.key = new THREE.DirectionalLight(0xfff4ec, 2.4);
@@ -32,6 +34,7 @@ export class VrmAvatar {
     this.vrm = null;
     this.gone = false;
     this.blinkAt = 1.5; this.blinkT = -1; this.blinkQueue = 0;
+    this.eyeW = { happy: 0, sad: 0, angry: 0, surprised: 0, curious: 0, tender: 0 };
     this.wander = new THREE.Vector3(); this.wanderAt = 0;
     this.headYaw = 0; this.headPitch = 0;
     this.rim = new THREE.Color();
@@ -73,6 +76,7 @@ export class VrmAvatar {
     for (const n of ['aa', 'ih', 'oh', 'ou', 'ee', 'blink', 'blinkLeft', 'blinkRight', 'happy', 'sad', 'angry', 'relaxed'])
       if (em.getExpression(n)) this.x[n] = n;
     this.x.surprised = em.getExpression('surprised') ? 'surprised' : em.getExpression('Surprised') ? 'Surprised' : null;
+    this.eye = new ProceduralEye(vrm, this.id);   // models with an eye rig get the procedural eye
 
     this.mtoon = [];
     vrm.scene.traverse(o => [].concat(o.material || []).forEach(m => { if (m.isMToonMaterial && !this.mtoon.includes(m)) this.mtoon.push(m); }));
@@ -147,6 +151,13 @@ export class VrmAvatar {
     set(x.angry, P.angry * angry * talk);   // VRoid's angry shuts the eyes past ~0.4
     set(x.relaxed, P.relaxed * relaxed * talk);
     set(x.surprised, P.surprised * surprised * talk);
+    // The eye follows the mood on its own, uncapped and about a second slower than the face.
+    if (this.eye?.ok) {
+      const eyeT = { happy, sad, angry, surprised, curious: clamp01((e.dilate - 0.55) / 0.15) * a, tender: clamp01(e.gold) * a };
+      const k = 1 - Math.exp(-dt / 0.8);
+      for (const n in eyeT) this.eyeW[n] += (eyeT[n] - this.eyeW[n]) * k;
+      this.eye.update(this.eyeW, t, vrm.lookAt);
+    }
 
     // ---- blinks: natural rhythm, doubles now and then, slow while thinking; none through a smile
     if (this.blinkT < 0 && (t > this.blinkAt || this.blinkQueue > 0)) {
