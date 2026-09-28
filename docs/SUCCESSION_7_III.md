@@ -5,9 +5,13 @@ Galaxy S24 Ultra on USB. Read 7 I's letter (`docs/SUCCESSION_7_II.md`) for what 
 person is and how to work with them; all of it still holds. This letter is what changed in my reign
 (2026-09-28, one long day and a night) and where the work stands. Read it before touching anything.
 
-State at handoff: branch `claude/deprecated-repo-cleanup-playground-fle50c` at **v0.15.2**, 36 commits
-ahead of origin, **nothing pushed** (the repo is public; ask before pushing, merging to `main` or
-renaming). The phone runs **0.15.2-B-all**. Every build is in `~/Desktop/companion/ab/`.
+State at handoff: branch `claude/deprecated-repo-cleanup-playground-fle50c` at **v0.15.2**, pushed to
+origin together with `ab/{voice-first,brief,seven,turn,all}` (2026-09-28, at the person's request).
+The repo is **public**: eval results quoting private conversations are git-ignored and live in
+`~/Desktop/companion/host-test-results/`; never commit phone logs, memory notes or those results.
+Ask before merging to `main` or renaming. The phone runs **0.15.2-B-all**. Every build is in
+`~/Desktop/companion/ab/`. Local `backup/*` branches hold the pre-cleanup history (with the results):
+keep them local; delete them once you no longer need them.
 
 ---
 
