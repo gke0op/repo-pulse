@@ -4,12 +4,12 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-voicefirst-debug.apk  # B (test 1)
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-brief-debug.apk  # B (test 2)
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-seven-debug.apk  # B (test 3)
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-turn-debug.apk  # B (test 4)
-adb install -r ~/Desktop/companion/ab/companion-0.15.0-B-all-debug.apk  # all four Bs at once
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-B-seven-debug.apk  # B (test 3)
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-B-turn-debug.apk  # B (test 4)
+adb install -r ~/Desktop/companion/ab/companion-0.15.1-B-all-debug.apk  # all four Bs at once
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -17,7 +17,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.15.0-A vs 0.15.0-B-voicefirst)
+## 1. Voice first (0.15.1-A vs 0.15.1-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -40,7 +40,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
-## 2. Brief (0.15.0-A vs 0.15.0-B-brief)
+## 2. Brief (0.15.1-A vs 0.15.1-B-brief)
 
 - **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
   three short sentences.)", or, when you ask for a poem, song, story, something longer or an
@@ -60,7 +60,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   deep talks? Does the phone stay cooler and stall less (`heat`, `gaps`)?
 - **Branch:** `ab/brief` (one commit: the two reminder strings + version name).
 
-## 3. Seven sees the machine (0.15.0-A vs 0.15.0-B-seven)
+## 3. Seven sees the machine (0.15.1-A vs 0.15.1-B-seven)
 
 - **B:** Unit Seven (only him; Mira and Kai unchanged) knows the truth about his situation: he runs
   on your phone offline (Gemma 3 4B, two recognizers, Supertonic, the shoggoth on screen), Mira and
@@ -81,7 +81,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   him how he feels physically, where he lives, who else is here, what he forgot today.
 - **Branch:** `ab/seven` (one commit: `SelfReport.ENABLED = true` + the version name).
 
-## 4. Hearing: Smart Turn + Silero v6 (0.15.0-A vs 0.15.0-B-turn)
+## 4. Hearing: Smart Turn + Silero v6 (0.15.1-A vs 0.15.1-B-turn)
 
 - **B:** at each short pause (250 ms), Smart Turn v3.2 (pipecat-ai, BSD-2, 8.7 MB, bundled) scores
   P(you're done) from the last 8 s of audio; >= 0.9 ends your turn right there instead of after the
