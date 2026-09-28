@@ -12,11 +12,12 @@ object SpeechText {
     private val action = Regex(
         """\*\s*(?:(?:a|an|with|one)\s+)?(?:(?:small|soft|quiet|little|thoughtful|brief|long|slight|gentle|deep|nervous|warm),?\s+)*""" +
             """(?:pause|pauses|pausing|laugh|laughs|laughing|sigh|sighs|sighing|smile|smiles|smiling|giggle|giggles|chuckle|chuckles|""" +
-            """whisper|whispers|grin|grins|nod|nods|wink|winks|blush|blushes|lean|leans|look|looks|tilt|tilts|clears|shrug|shrugs|beat)\b[^*]*\*""",
+            """whisper|whispers|grin|grins|nod|nods|wink|winks|blush|blushes|lean|leans|look|looks|tilt|tilts|clears|shrug|shrugs|beat|""" +
+            """wave|waves|waving|hug|hugs|blink|blinks|frown|frowns|gasp|gasps|yawn|yawns|stretch|stretches|hum|hums|humming)\b[^*]*\*""",
         RegexOption.IGNORE_CASE,
     )
-    // (asides), and any [bracketed] text the emotion parser let through: a stray tag or "[Mira begins to recite]".
-    private val aside = Regex("""\([^)]*\)|\[[^\]]{1,80}\]""")
+    // (asides), and [bracketed words] the emotion parser let through: a stray tag or "[Mira begins to recite]" ("[1]" stays).
+    private val aside = Regex("""\([^)]*\)|\[[A-Za-z][^\]]{0,79}\]""")
     private val markdown = Regex("[#_`~>*\\[\\]]")
     private val nonSpeech = Regex("[\\p{So}\\p{Cn}\\p{Cs}\\uFE0F\\u200D]")
     private val spaces = Regex("\\s+")
