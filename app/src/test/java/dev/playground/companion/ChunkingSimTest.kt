@@ -33,48 +33,66 @@ class ChunkingSimTest {
         }.toList()
     }
 
-    /** Returns (first audio ms, silence inside the reply ms) for [t] chunked by [make]. */
-    private fun simulate(t: Turn, make: () -> SentenceChunker): Pair<Double, Double> {
+    /**
+     * Returns (first audio ms, silence inside the reply ms) for [t] chunked by [make]. Synth model:
+     * Supertonic's shape on the Mac (fixed ~260 ms + 2.6 ms/char alone), scaled per turn by [c], and
+     * [k] times slower while the brain is still generating (Mac: 330 vs 1,136 ms => k ~3.4).
+     */
+    private fun simulate(t: Turn, make: () -> SentenceChunker, k: Double, cFixed: Double? = null): Triple<Double, Double, Double> {
         val text = t.reply.replace(Regex("""\[[^\]]*\]"""), "").replace("*", "").trim()
-        if (text.isEmpty() || t.tokens == 0) return 0.0 to 0.0
-        val charsPerTok = text.length.toDouble() / t.tokens
-        val msPerChar = 1000.0 / (t.tokS * charsPerTok)
-        // Synth model per turn: synth(n) = a + b*n, fitted to this turn's first chunk and total.
-        val b = ((t.synthTotal - t.chunks * t.s1) / (text.length - t.chunks * t.n1).coerceAtLeast(1)).coerceIn(0.0, 200.0)
-        val a = (t.s1 - b * t.n1).coerceAtLeast(0.0)
+        if (text.isEmpty() || t.tokens == 0) return Triple(0.0, 0.0, 0.0)
+        val msPerChar = 1000.0 / (t.tokS * text.length.toDouble() / t.tokens)
+        val genEnd = t.ftMs + text.length * msPerChar
         val audioPerChar = t.audioMs / text.length
         val c = make(); val ready = mutableListOf<Pair<String, Double>>()
         var pos = 0
         for (piece in text.chunked(4)) { pos += piece.length; c.push(piece).forEach { ready += it to (t.ftMs + pos * msPerChar) } }
-        c.flush()?.let { ready += it to (t.ftMs + text.length * msPerChar) }
-        var synthEnd = 0.0; var playEnd = 0.0; var first = -1.0; var silence = 0.0
-        for ((chunk, at) in ready) {
-            synthEnd = maxOf(at, synthEnd) + a + b * chunk.length
-            val start = maxOf(synthEnd, playEnd)
-            if (first < 0) first = start else silence += start - playEnd
-            playEnd = start + audioPerChar * chunk.length
+        c.flush()?.let { ready += it to genEnd }
+        fun run(scale: Double): Triple<Double, Double, Double> {
+            var synthEnd = 0.0; var playEnd = 0.0; var first = -1.0; var silence = 0.0; var synthSum = 0.0
+            for ((chunk, at) in ready) {
+                val start = maxOf(at, synthEnd)
+                val alone = scale * (260.0 + 2.6 * chunk.length)
+                // Contended for the part of synthesis that overlaps generation.
+                val contended = if (start < genEnd) minOf(alone * k, (genEnd - start) + (alone - (genEnd - start) / k).coerceAtLeast(0.0)) else alone
+                synthEnd = start + contended; synthSum += contended
+                val play = maxOf(synthEnd, playEnd)
+                if (first < 0) first = play else silence += play - playEnd
+                playEnd = play + audioPerChar * chunk.length
+            }
+            return Triple(first, silence, synthSum)
         }
-        return first to silence
+        if (cFixed != null) return run(cFixed)
+        // Fit the per-turn speed so the simulated total synth equals the phone's (bisection).
+        var lo = 0.05; var hi = 20.0
+        repeat(40) { val mid = (lo + hi) / 2; if (run(mid).third < t.synthTotal) lo = mid else hi = mid }
+        return run((lo + hi) / 2).let { Triple(it.first, it.second, (lo + hi) / 2) }
     }
 
     @Test fun replay() {
         val dir = System.getenv("CHUNK_SIM_LOGS"); assumeTrue(dir != null)
         val turns = parse(File(dir!!)).filter { it.chunks > 1 }
         fun med(x: List<Double>) = x.sorted()[x.size / 2]
+        println("turns: ${turns.size}; phone: first audio ${med(turns.map { it.obsFirstAudio })} ms, silence ${med(turns.map { it.obsSilence })} ms")
+        for (k in listOf(1.0, 2.0, 3.0, 3.4, 4.0)) {
+            val sim = turns.map { simulate(it, { SentenceChunker() }, k) }
+            val err = turns.indices.map { kotlin.math.abs(sim[it].second - turns[it].obsSilence) }
+            println("k=$k: sim first audio ${med(sim.map { it.first }).toInt()} ms, silence ${med(sim.map { it.second }).toInt()} ms, median |silence error| ${med(err).toInt()} ms")
+        }
+        val k = (System.getenv("CHUNK_SIM_K") ?: "3.4").toDouble()
         val policies = linkedMapOf<String, () -> SentenceChunker>(
             "current" to { SentenceChunker() },
-            "ramp: 2nd chunk may break at a clause" to { SentenceChunker(rampChunks = 1) },
-            "ramp: 2nd+3rd chunk" to { SentenceChunker(rampChunks = 2) },
+            "ramp 1" to { SentenceChunker(rampChunks = 1) },
+            "ramp 2" to { SentenceChunker(rampChunks = 2) },
+            "ramp 3" to { SentenceChunker(rampChunks = 3) },
         )
-        println("turns: ${turns.size}")
-        val sim0 = turns.map { simulate(it, policies["current"]!!) }
-        println("validation (current chunker): first audio sim ${med(sim0.map { it.first })} vs phone ${med(turns.map { it.obsFirstAudio })} ms; " +
-            "silence sim ${med(sim0.map { it.second })} vs phone ${med(turns.map { it.obsSilence })} ms")
         for ((hot, label) in listOf(false to "cool (status 0-2)", true to "hot (status 3-4)")) {
             val ts = turns.filter { (it.heat >= 3) == hot }
+            // Each turn keeps the speed fitted under the current chunker, so policies compare like for like.
+            val scale = ts.map { simulate(it, { SentenceChunker() }, k).third }
             for ((name, mk) in policies) {
-                val r = ts.map { simulate(it, mk) }
-                println("$label n=${ts.size} | $name: first audio ${med(r.map { it.first }).toInt()} ms, silence median ${med(r.map { it.second }).toInt()} ms, p75 ${r.map { it.second }.sorted()[3 * r.size / 4].toInt()} ms")
+                val r = ts.indices.map { simulate(ts[it], mk, k, scale[it]) }
+                println("k=$k $label n=${ts.size} | $name: first audio ${med(r.map { it.first }).toInt()} ms, silence median ${med(r.map { it.second }).toInt()} ms, p75 ${r.map { it.second }.sorted()[3 * r.size / 4].toInt()} ms")
             }
         }
     }

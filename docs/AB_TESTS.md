@@ -4,9 +4,9 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.4-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.4-B-voicefirst-debug.apk  # B (test 1)
-adb install -r ~/Desktop/companion/ab/companion-0.14.4-B-brief-debug.apk  # B (test 2)
+adb install -r ~/Desktop/companion/ab/companion-0.14.5-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.14.5-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.14.5-B-brief-debug.apk  # B (test 2)
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -14,7 +14,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.4-A vs 0.14.4-B-voicefirst)
+## 1. Voice first (0.14.5-A vs 0.14.5-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -37,7 +37,7 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
-## 2. Brief (0.14.4-A vs 0.14.4-B-brief)
+## 2. Brief (0.14.5-A vs 0.14.5-B-brief)
 
 - **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
   three short sentences.)", or, when you ask for a poem, song, story, something longer or an
@@ -79,7 +79,9 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   long when hot (median 6 chunks, 19 s audio), and a 2-word first chunk plays ~1 s while the next whole
   sentence needs ~3 s to synthesize. `SentenceChunker(rampChunks = n)` (off by default) lets chunks
   2..n+1 break at a clause too. `ChunkingSimTest` (set CHUNK_SIM_LOGS to a logs dir) replays real
-  replies: it reproduces first audio (3.28 s sim vs 3.43 s phone) but not silence (1.5 s vs 0.43 s),
-  so its "ramp barely helps" is not evidence yet. Read the new `gaps` lines first. Ideas to A/B once measured: when the governor
+  replies: it reproduces first audio (3.28 s sim vs 3.43 s phone) but not silence (1.5 s vs 0.43 s).
+  A contention model (synth k x slower while the brain writes) fit worse for every k (best k=1:
+  1.26 s). The simulator can't judge the ramp; the phone's `gaps` lines will. (The ramp itself is
+  unit-tested: `SentenceChunkerRampTest`.) Ideas to A/B once measured: when the governor
   is `hot`, wait for a whole first sentence instead of a 2-word first chunk (later start, no stall
   after it); ask for shorter replies when hot; or lower `MAX_REPLY_TOKENS` when hot.
