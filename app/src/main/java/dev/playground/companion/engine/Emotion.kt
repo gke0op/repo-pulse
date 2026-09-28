@@ -37,8 +37,11 @@ enum class Emotion {
 
 /**
  * Splits streamed LLM text into spoken text and emotion tags, even when a tag arrives in
- * pieces ("[Hap" + "py] Oh"). Any short bracketed word is treated as a tag and never
- * reaches the voice or transcript; unknown words yield a tag with a null emotion.
+ * pieces ("[Hap" + "py] Oh"). A short bracketed word is a tag (unknown words yield a null
+ * emotion). Any other bracket that starts with a letter is a stage direction and is silent too:
+ * the 2026-09-28 phone logs had 8 of them spoken aloud ("[a pause, a slight hesitation]",
+ * "[a blush, a shy smile]"), and none that was meant to be heard. "[1]" is still spoken.
+ * Handled here, before chunking, because a chunk can break inside "[a pause, ...]".
  */
 class EmotionTagStream {
     sealed class Part {
@@ -60,14 +63,18 @@ class EmotionTagStream {
             }
             held.append(c)
             when {
-                c == ']' -> {
-                    val word = held.substring(1, held.length - 1)
-                    if (TAG_WORD.matches(word)) out += Part.Tag(Emotion.fromWord(word), word)
-                    else text.append(held)
+                held.length == 2 && !c.isLetter() -> {             // "[1]", "[ " ...: not ours, speak it
+                    text.append(held)
                     held.setLength(0)
                 }
-                held.length > MAX_TAG || !(c.isLetter() || c == ' ' || c == '-') -> {
-                    text.append(held)                            // not a tag after all: speak it
+                c == ']' -> {
+                    val word = held.substring(1, held.length - 1)
+                    // A tag word sets the feeling; a longer stage direction just goes silent.
+                    out += Part.Tag(if (TAG_WORD.matches(word)) Emotion.fromWord(word) else null, word)
+                    held.setLength(0)
+                }
+                held.length > MAX_ASIDE || c == '\n' -> {
+                    text.append(held)                            // too long to be an aside: speak it
                     held.setLength(0)
                 }
             }
@@ -80,7 +87,7 @@ class EmotionTagStream {
     fun flush(): String? = held.toString().ifEmpty { null }.also { held.setLength(0) }
 
     private companion object {
-        const val MAX_TAG = 24
+        const val MAX_ASIDE = 80
         val TAG_WORD = Regex("[A-Za-z][A-Za-z -]{0,20}")
     }
 }

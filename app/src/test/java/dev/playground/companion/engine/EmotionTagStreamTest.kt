@@ -35,8 +35,14 @@ class EmotionTagStreamTest {
         assertNull(tags[0])
     }
 
-    @Test fun bracketsThatAreNotTagsAreKept() {
-        assertEquals("Item [1] and [see: notes]", run("Item [1] and [see: notes]").first)
+    @Test fun numberBracketsAreKept() = assertEquals("Item [1] stays.", run("Item [1] stays.").first)
+
+    @Test fun bracketedStageDirectionsAreSilent() {
+        // Real leaks from the 2026-09-28 logs, split the way streaming splits them.
+        val (text, tags) = run("[tender] [a pause, a sl", "ight hesitation] That’s… intense.")
+        assertEquals("  That’s… intense.", text)
+        assertEquals(Emotion.TENDER, tags[0])
+        assertEquals(" and yes", run("[a blush, a shy smile]", " and yes").first)
     }
 
     @Test fun unterminatedBracketIsFlushedAsText() = assertEquals("Hmm [maybe", run("Hmm [maybe").first)
