@@ -5,27 +5,36 @@ reports and the desktop harnesses in `tools/host-test` and `web/avatar`.
 
 ## Next
 
-### FTT: faster turn-taking
-- **Problem:** after you stop talking, the reply waits for the end-of-turn silence (0.8 s rule plus
-  VAD tail, measured ~1.2 s), then the second-pass recognizer, then the brain. With Gemma 4B,
-  spoken exchanges land at ~3–5 s.
-- **Plan:** start the brain speculatively at the first short pause (~0.3 s), using the second-pass
-  transcript of the audio so far. If you keep talking, cancel and restart (the KV prefix is
-  reused, so a restart is cheap). Commit when the full end-of-turn fires and the text matches.
-- **Measure:** "you stopped → her voice" in the turn report, before and after.
+### Hot-phone voice gaps (the biggest audible problem now)
+- **Problem:** cool (thermal status 0-1) her voice flows; hot (3-4) she pauses mid-reply for ~2 s
+  (median; 157 turns, 2026-09-28). The brain is not the bottleneck (done ~8.6 s before her audio
+  ends); the voice is: hot replies run long (median 6 chunks, 19 s audio) and a 2-word first chunk
+  plays ~1 s while the next whole sentence synthesizes at RTF ~0.7.
+- **Candidates:** chunk-size ramp (`SentenceChunker.rampChunks`, built, off), shorter replies when
+  hot, first chunk = whole sentence when hot. The turn report's `gaps` line measures it.
 
-### LTM: long-term memory
-- **Problem:** each launch starts fresh. The session log records conversations but nothing feeds
-  them back, and the 2048-token context trims old turns within a session.
-- **Plan:** per character, on disk:
-  1. keep a rolling summary of past sessions (written by the brain between sessions or while
-     charging);
-  2. store salient facts ("works as …", "dog died last month") as short notes with embeddings
-     from a small local embedding model;
-  3. at each turn, retrieve the top few notes relevant to what you just said and prepend them
-     to the prompt.
-- **Measure:** the recall probe in `persona_eval` ("do you remember where I said I'm going?"),
-  run across restarts.
+### A/B on the phone: voice first (`docs/AB_TESTS.md`)
+- Pause the brain while the first chunk synthesizes, when cool. Builds in `~/Desktop/companion/ab/`.
+
+### LTM v2
+- v1 is in (below). Next: notes quality (merge near-duplicates the brain rephrases, drop
+  in-chat events filed as `you:`), a memory test across restarts on the phone, and retrieval with
+  embeddings once notes outgrow the ~19-line block.
+- Known invention left: Mira answers "what did we say we'd bake?" with a made-up recipe when her
+  note only says you bake together (`tools/host-test/recall_eval`).
+
+## Done (2026-09-28, 7 II)
+- **FTT:** early start at a 250 ms pause, held silent until end of turn, committed or dropped;
+  turns cut before any audio are retracted and the next words join them. Phone: 76/117 early
+  starts used; stop -> voice median 3.6 s cool (was ~4.5 s).
+- **KV shift on history trim:** no more 40 s pauses (phone: 5 trims keeping 677-851 cached tokens).
+- **Thermal governor:** avatar 60/30/24 fps as the phone heats, idle always <= 30 fps. Hot
+  stretch of a 32-min chat: brain 7.6 tok/s (was 3.5-4.3), worst RTF 0.68 (was 1.17).
+- **LTM v1:** per-character notes (`you:`/`wish:`/`us:`, <= 19 lines) distilled in the background
+  after you leave, in a scratch context; Models -> Memories shows them.
+- **Smaller:** phantom "And" no longer pays a second pass (1,930 -> 4 per session), prompt
+  threads 6 -> 4 (llama-bench), no-reply turns can't crash the chat template, APKs named after the
+  build, VRMs stored per pinned commit so a pin bump re-downloads.
 
 ## Later
 - **Mira and Kai as your own VRoid models** (spec: `docs/AVATAR_HANDOFF.md`). The placeholders
