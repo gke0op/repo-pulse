@@ -34,6 +34,8 @@ reports and the desktop harnesses in `tools/host-test` and `web/avatar`.
   3B or smaller brain, and handling Android evicting the mmap'd brain (measured: 1.1 s first-token
   penalty after eviction).
 - **Emotion profile decision:** A (subtle) vs B (strong) for the humans, from the test strip.
+- **The orb as the humans' heart** (user wish, 2026-09-28, deferred): on Mira and Kai, "the orb
+  goes where their heart would be anatomically and stays there". Touches `vrm.js` + `orb.js`.
 
 ## Keepers (don't lose these)
 - **The plasma orb** (`web/avatar/src/orb.js`): a first-class look for Mira and Kai
