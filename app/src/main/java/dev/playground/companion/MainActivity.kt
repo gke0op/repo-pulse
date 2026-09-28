@@ -533,14 +533,24 @@ class MainActivity : Activity(), Pipeline.Listener {
         }
     }
 
+    private val governor by lazy {
+        dev.playground.companion.engine.ThermalGovernor(this) { lv ->
+            avatar.setQuality(lv.fps, lv.pixelRatio)
+            pipeline.heatLevel = lv.name.lowercase()
+            log.event("heat: avatar ${lv.name.lowercase()} (${lv.fps} fps, pixel ratio ${lv.pixelRatio})")
+        }
+    }
+
     override fun onPause() {
         super.onPause()
+        governor.stop()
         avatar.pauseRendering()
     }
 
     override fun onResume() {
         super.onResume()
         avatar.resumeRendering()
+        governor.start()
     }
 
     override fun onDestroy() {

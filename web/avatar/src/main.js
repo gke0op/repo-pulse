@@ -192,10 +192,17 @@ resize();
 
 const timer = new THREE.Timer();
 let running = true;
+// Thermal governor (set from the app): fewer frames and pixels when the phone runs hot.
+// Idle is capped at 30 fps regardless: breathing doesn't need 60 (or the panel's 120).
+let maxFps = 60, lastRenderAt = 0;
+function frameBudgetMs() { return 1000 / (stateName === 'idle' ? Math.min(maxFps, 30) : maxFps); }
 const timeOffset = parseFloat(params.get('t') || '0');
 function frame() {
   if (!running) return;
   requestAnimationFrame(frame);
+  const t0 = performance.now();
+  if (t0 - lastRenderAt < frameBudgetMs() - 2) return; // -2 ms: vsync jitter must not halve the rate
+  lastRenderAt = t0;
   timer.update();
   const dt = Math.min(timer.getDelta(), 0.05);
   const now = performance.now();
@@ -251,6 +258,12 @@ window.avatar = {
   debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
   resume() { if (!running) { running = true; timer.update(); frame(); } },
+  /** fps: frame cap while active; pixelRatio: render resolution (the page caps it at 2). */
+  setQuality(fps, pixelRatio) {
+    maxFps = Math.max(10, fps);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatio));
+    resize();
+  },
 };
 
 setCharacter(params.get('char') || 'machine');

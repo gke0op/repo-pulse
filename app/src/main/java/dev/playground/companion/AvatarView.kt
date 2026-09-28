@@ -95,6 +95,9 @@ class AvatarView(ctx: Context, private val modelFile: (String) -> java.io.File) 
     /** "human" (VRM models) or "orb" (plasma orbs) for Mira and Kai. Unit Seven is always the shoggoth. */
     fun setLook(look: String) = js("avatar.setLook('$look')")
 
+    /** Thermal governor: frame cap while active (idle is always <= 30) and render resolution. */
+    fun setQuality(fps: Int, pixelRatio: Float) = js("avatar.setQuality($fps,${String.format(Locale.US, "%.2f", pixelRatio)})")
+
     fun pauseRendering() { js("avatar.pause()"); onPause() }
 
     fun resumeRendering() { onResume(); js("avatar.resume()") }

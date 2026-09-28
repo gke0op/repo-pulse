@@ -441,11 +441,13 @@ class Pipeline(
     private fun now() = SystemClock.elapsedRealtime()
 
     private val power = ctx.getSystemService(PowerManager::class.java)
+    /** The thermal governor's current avatar level, for the turn report. */
+    @Volatile var heatLevel = "cool"
 
     /** Thermal status (0 none .. 6 shutdown) and headroom (1.0 = throttling starts), to explain slow turns. */
     private fun heat(): String {
         val headroom = if (Build.VERSION.SDK_INT >= 30) power.getThermalHeadroom(0) else Float.NaN
-        return "status ${power.currentThermalStatus}, headroom ${"%.2f".format(headroom)}"
+        return "status ${power.currentThermalStatus}, headroom ${"%.2f".format(headroom)}, avatar $heatLevel"
     }
 
     companion object {
