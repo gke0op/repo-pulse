@@ -32,6 +32,7 @@ export class VrmAvatar {
     this.vrm = null;
     this.gone = false;
     this.blinkAt = 1.5; this.blinkT = -1; this.blinkQueue = 0;
+    this.eyeW = { eye_happy: 0, eye_sad: 0, eye_angry: 0, eye_surprised: 0, eye_curious: 0, eye_tender: 0 };
     this.wander = new THREE.Vector3(); this.wanderAt = 0;
     this.headYaw = 0; this.headPitch = 0;
     this.rim = new THREE.Color();
@@ -73,6 +74,8 @@ export class VrmAvatar {
     for (const n of ['aa', 'ih', 'oh', 'ou', 'ee', 'blink', 'blinkLeft', 'blinkRight', 'happy', 'sad', 'angry', 'relaxed'])
       if (em.getExpression(n)) this.x[n] = n;
     this.x.surprised = em.getExpression('surprised') ? 'surprised' : em.getExpression('Surprised') ? 'Surprised' : null;
+    // Modular eyes (models that have them): eye-only expressions for pupil, sclera, glow and highlights.
+    this.xe = Object.keys(this.eyeW).filter(n => em.getExpression(n));
 
     this.mtoon = [];
     vrm.scene.traverse(o => [].concat(o.material || []).forEach(m => { if (m.isMToonMaterial && !this.mtoon.includes(m)) this.mtoon.push(m); }));
@@ -147,6 +150,14 @@ export class VrmAvatar {
     set(x.angry, P.angry * angry * talk);   // VRoid's angry shuts the eyes past ~0.4
     set(x.relaxed, P.relaxed * relaxed * talk);
     set(x.surprised, P.surprised * surprised * talk);
+    // Eyes follow the mood on their own, uncapped (no squint to fight) and slower than the face:
+    // pupils and tear shine take about a second to change.
+    if (this.xe.length) {
+      const eyeT = { eye_happy: happy, eye_sad: sad, eye_angry: angry, eye_surprised: surprised,
+        eye_curious: clamp01((e.dilate - 0.55) / 0.15) * a, eye_tender: clamp01(e.gold) * a };
+      const k = 1 - Math.exp(-dt / 0.8);
+      for (const n of this.xe) { this.eyeW[n] += (eyeT[n] - this.eyeW[n]) * k; em.setValue(n, this.eyeW[n]); }
+    }
 
     // ---- blinks: natural rhythm, doubles now and then, slow while thinking; none through a smile
     if (this.blinkT < 0 && (t > this.blinkAt || this.blinkQueue > 0)) {

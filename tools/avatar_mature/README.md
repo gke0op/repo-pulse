@@ -41,3 +41,10 @@ What `mature.py` does (per-character numbers in `P`):
   lie over lower ones), with our own strand texture. Mira: chin-length side-swept bob, 12 spring
   chains (3 bones each, bangs pinned, neck/chest colliders). Kai: short textured cut with a
   swept fringe, rigid (no springs). Deterministic: fixed seeds per character.
+- **eyes** (Mira; `eye_layers.py` + `EYES=<dir>`): her original iris is split into base / glow
+  (her lower light spectrum) / pupil layers on duplicated iris geometry (recomposes to within ~1% of
+  the original); shape keys EYE_PupilDilate / EYE_PupilConstrict / EYE_IrisGrow / EYE_HighlightGrow
+  scale about each eye's own centre; six eye-only expressions (eye_happy, eye_sad, eye_angry,
+  eye_surprised, eye_curious, eye_tender) combine those keys with material binds (sclera tint, glow
+  colour/emission, highlight emission/alpha). Directions follow the audited research; magnitudes
+  are judgement, exaggerated to read on a phone. `KEEP_COLOURS=1` keeps the adult palette.

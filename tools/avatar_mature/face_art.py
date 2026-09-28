@@ -219,7 +219,17 @@ for c in range(3):
 shadow = np.exp(-(((X - 0.12 * hw) / (0.12 * hw)) ** 2 + ((Z - (nose_z - 0.1 * hh)) / (0.22 * hh)) ** 2))
 shadow = np.nan_to_num(shadow)
 rgb = rgb * (1 - 0.07 * shadow[..., None] * np.array([0.5, 1.0, 1.0], np.float32))   # warm, not grey
-if MIRA:   # beauty mark under her left eye, toward the outer corner
+if MIRA and os.environ.get('CYBER'):   # freckles: a light scatter over the nose bridge and upper cheeks
+    rng2 = np.random.default_rng(31)
+    for _ in range(30):
+        side_ = rng2.choice([-1, 1]); ax = abs(rng2.normal(0.0, 0.75))
+        fx = side_ * min(ax, 1.6) * hw * 0.9
+        fz = eye_z - (1.45 + rng2.normal(0, 0.35) + 0.25 * (ax / 1.6)) * hh
+        r_ = rng2.uniform(0.00045, 0.0008)
+        d = np.nan_to_num(np.hypot(X - fx, Z - fz) / r_, nan=9)
+        dot = (1 - sm(0.6, 1.2, d)) * rng2.uniform(0.22, 0.42)
+        rgb = rgb * (1 - dot[..., None]) + hexl('#a0583a') * dot[..., None]
+elif MIRA:   # beauty mark under her left eye, toward the outer corner
     bx, bz = EYES[1]['cx'] + 0.55 * hw, eye_z - 1.65 * hh
     d = np.nan_to_num(np.hypot(X - bx, Z - bz) / 0.0011, nan=9)
     mark = 1 - sm(0.7, 1.15, d)

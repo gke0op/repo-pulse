@@ -1,7 +1,7 @@
 # Blender headless: mature a VRoid VRM 0.x in place.
 # blender --background --python mature.py -- <char> <in.vrm> <out.vrm> <tops.png> <islands.json> [stages]
 # stages: comma list of wardrobe,proportions,face (default all)
-import bpy, bmesh, sys, json, math
+import bpy, bmesh, sys, json, math, os
 import numpy as np
 from mathutils import Vector
 
@@ -58,10 +58,12 @@ if 'wardrobe' in stages:
                 kill.append(f)
         bmesh.ops.delete(bm, geom=kill, context='FACES'); bm.to_mesh(body.data); bm.free()
         log('removed collar faces', len(kill))
-        clip = [i for i, m in enumerate(hair.data.materials) if m.name.endswith('HAIR_02')]
-        log('removed hair clip faces', delete_faces(hair, lambda f: f.material_index in clip))   # the cyan X clip
+        if not os.environ.get('CYBER'):
+            clip = [i for i, m in enumerate(hair.data.materials) if m.name.endswith('HAIR_02')]
+            log('removed hair clip faces', delete_faces(hair, lambda f: f.material_index in clip))   # the cyan X clip
     img = next(n.image for m in mats if 'Tops' in m.name for n in m.node_tree.nodes
                if n.type == 'TEX_IMAGE' and n.image and 'Tops' in n.image.name)
+    if os.environ.get('CYBER'): tops_png = os.path.join(os.environ['CYBER'], 'tops_cyber.png')
     new = bpy.data.images.load(tops_png)
     assert tuple(new.size) == tuple(img.size)
     img.pixels.foreach_set(new.pixels[:]); img.update(); img.pack()   # repack from pixels, not the old bytes
@@ -228,7 +230,7 @@ if 'identity' in stages:
         name = os.path.basename(p)[3:-4]                 # "09_F00_000_EyeIris_00.png" -> image name
         replace_pixels(bpy.data.images[name], p)
         log('art', name)
-    for m in bpy.data.materials:
+    for m in (bpy.data.materials if not os.environ.get('KEEP_COLOURS') else []):   # KEEP_COLOURS: face art only
         if 'Outline' in m.name: continue
         t = m.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
         if '_HAIR' in m.name and not ('HAIR_02' in m.name and char == 'mira'):
@@ -244,6 +246,139 @@ if 'identity' in stages:
         else:
             continue
         log('colour', m.name)
+
+
+# ---------------------------------------------------------------- cyber demo (Mira): colour lives in the textures
+if os.environ.get('CYBER') and 'identity' in stages:
+    cy = os.environ['CYBER']
+    def img_from(path, like=None):
+        im = bpy.data.images.load(path); im.pack(); return im
+    for m in bpy.data.materials:
+        if 'Outline' in m.name: continue
+        t = m.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
+        if m.name.endswith('HAIR_01'):
+            replace_pixels(t.pbr_metallic_roughness.base_color_texture.index.source, f'{cy}/hair_cyber.png')
+            replace_pixels(t.emissive_texture.index.source, f'{cy}/hair_cyber_emis.png')
+            t.pbr_metallic_roughness.base_color_factor = [1.0, 1.0, 1.0, 1.0]
+            x.shade_color_factor = [0.42, 0.34, 0.62]
+            t.emissive_factor = [0.5, 0.5, 0.5]
+        elif 'HairBack' in m.name:
+            bimg = t.pbr_metallic_roughness.base_color_texture.index.source
+            root = [(int(h, 16) / 255) for h in ('2a', '18', '40')]
+            a = np.array(bimg.pixels[:], np.float32).reshape(bimg.size[1], bimg.size[0], 4); a[..., :3] = root
+            bimg.pixels.foreach_set(a.ravel()); bimg.update(); bimg.pack()
+            t.pbr_metallic_roughness.base_color_factor = [1.0, 1.0, 1.0, 1.0]
+            x.shade_color_factor = [0.5, 0.45, 0.7]; t.emissive_factor = [0.0, 0.0, 0.0]
+        elif m.name.endswith('HAIR_02'):                                   # the X clip: neon cyan
+            t.pbr_metallic_roughness.base_color_factor = lin('#3fe6e0') + [1.0]
+            x.shade_color_factor = lin('#1f8f8c'); t.emissive_factor = [c * 1.6 for c in lin('#3fe6e0')]
+        elif 'Tops' in m.name:
+            t.emissive_texture.index.source = img_from(f'{cy}/tops_cyber_emis.png')
+            t.emissive_factor = [1.0, 1.0, 1.0]
+        else:
+            continue
+        log('cyber', m.name)
+
+
+# ---------------------------------------------------------------- modular eyes (Mira first)
+# Her iris is split into base / glow / pupil layers (eye_layers.py) stacked on duplicated iris geometry;
+# sizes are shape keys scaled about each eye's own centre, colours are material binds, and both live in
+# eye-only expressions (eye_happy, eye_angry, ...) that vrm.js drives from the emotion engine.
+EYE_EMO = {  # directions from the audited research; sizes are judgement (exaggerated so they read on a phone)
+    'eye_happy':     dict(keys={'EYE_PupilDilate': 0.35, 'EYE_HighlightGrow': 0.8, 'EYE_IrisGrow': 0.6},
+                          mats={'hl': ('_EmissionColor', (0.5, 0.5, 0.5, 1)), 'glow': ('_EmissionColor', (0.30, 0.19, 0.07, 1))}),
+    'eye_sad':       dict(keys={'EYE_PupilDilate': 0.2, 'EYE_HighlightGrow': 0.4},
+                          mats={'white': ('_Color', (1.0, 0.88, 0.88, 1)), 'glow': ('_Color', (0.60, 0.60, 0.75, 1)),
+                                'hl': ('_EmissionColor', (0.35, 0.38, 0.45, 1))}),
+    'eye_angry':     dict(keys={'EYE_PupilConstrict': 0.25},
+                          mats={'white': ('_Color', (1.0, 0.78, 0.78, 1)), 'glow': ('_Color', (0.45, 0.10, 0.08, 1)),
+                                'hl': ('_Color', (1, 1, 1, 0.45))}),
+    'eye_surprised': dict(keys={'EYE_PupilDilate': 0.4, 'EYE_HighlightGrow': 0.5}, mats={}),
+    'eye_curious':   dict(keys={'EYE_PupilDilate': 0.3}, mats={'hl': ('_EmissionColor', (0.3, 0.3, 0.3, 1))}),
+    'eye_tender':    dict(keys={'EYE_PupilDilate': 0.3, 'EYE_IrisGrow': 0.3},
+                          mats={'glow': ('_EmissionColor', (0.20, 0.11, 0.04, 1))}),
+}
+
+if 'eyes' in stages:
+    layers = json.load(open(os.path.join(os.environ['EYES'], 'eye_layers.json')))
+    fme = face.data
+    mid = {k: next(i for i, m in enumerate(fme.materials) if sub in m.name)
+           for k, sub in (('iris', 'EyeIris'), ('hl', 'EyeHighlight'), ('white', 'EyeWhite'))}
+    iris_mat, hl_mat, white_mat = fme.materials[mid['iris']], fme.materials[mid['hl']], fme.materials[mid['white']]
+    # 1. layer materials: copies of the iris material with their own textures, drawn before the highlight
+    def layer_mat(name, png, rqo):
+        m = iris_mat.copy(); m.name = f'{iris_mat.name}_{name}'
+        t = m.vrm_addon_extension.mtoon1; x = t.extensions.vrmc_materials_mtoon
+        im = bpy.data.images.load(os.path.join(os.environ['EYES'], png)); im.name = f'{name}_{char}'; im.pack()
+        t.pbr_metallic_roughness.base_color_texture.index.source = im
+        x.shade_multiply_texture.index.source = im
+        t.alpha_mode = 'BLEND'; x.render_queue_offset_number = rqo; x.transparent_with_z_write = False
+        fme.materials.append(m); return m, len(fme.materials) - 1
+    replace_pixels(iris_mat.vrm_addon_extension.mtoon1.pbr_metallic_roughness.base_color_texture.index.source,
+                   os.path.join(os.environ['EYES'], 'iris_base.png'))
+    glow_mat, gi = layer_mat('IrisGlow', 'iris_glow.png', -3)
+    pupil_mat, pi = layer_mat('Pupil', 'iris_pupil.png', -2)
+    # 2. duplicate the iris faces twice, nudged toward the camera (local +Y), in every shape-key layer
+    bm = bmesh.new(); bm.from_mesh(fme); bm.faces.ensure_lookup_table()
+    iris_faces = [f for f in bm.faces if f.material_index == mid['iris']]
+    skl = bm.verts.layers.shape
+    uvl = bm.loops.layers.uv.active
+    def uv_to_local(u, v):
+        for f in iris_faces:
+            ls = f.loops
+            for k in range(1, len(ls) - 1):
+                a, b, c = ls[0], ls[k], ls[k + 1]
+                (x1, y1), (x2, y2), (x3, y3) = a[uvl].uv, b[uvl].uv, c[uvl].uv
+                d = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
+                if abs(d) < 1e-12: continue
+                l1 = ((y2 - y3) * (u - x3) + (x3 - x2) * (v - y3)) / d; l2 = ((y3 - y1) * (u - x3) + (x1 - x3) * (v - y3)) / d
+                l3 = 1 - l1 - l2
+                if min(l1, l2, l3) >= -1e-6: return a.vert.co * l1 + b.vert.co * l2 + c.vert.co * l3
+        raise ValueError('uv not on iris')
+    piv = {s: dict(iris=uv_to_local(*layers[s]['iris_c']), pupil=uv_to_local(*layers[s]['pupil_c'])) for s in ('left', 'right')}
+    new_sets = {}
+    for tag, mi, dy in (('glow', gi, 0.00012), ('pupil', pi, 0.00024)):
+        ret = bmesh.ops.duplicate(bm, geom=iris_faces)
+        fs = [g for g in ret['geom'] if isinstance(g, bmesh.types.BMFace)]
+        vs = [g for g in ret['geom'] if isinstance(g, bmesh.types.BMVert)]
+        for f in fs: f.material_index = mi
+        for v in vs:
+            v.co.y += dy
+            for lay in skl.values(): v[lay].y += dy
+        new_sets[tag] = vs
+    bm.verts.index_update()
+    new_idx = {k: [v.index for v in vs] for k, vs in new_sets.items()}
+    iris_idx = sorted({v.index for f in iris_faces for v in f.verts})
+    hl_idx = sorted({v.index for f in bm.faces if f.material_index == mid['hl'] for v in f.verts})
+    bm.to_mesh(fme); bm.free(); fme.update()
+    # 3. shape keys: scale in the eye plane (local x, z) about each eye's own pivot
+    B = [v.co.copy() for v in fme.vertices]
+    def side_of(i, ref): return min(piv, key=lambda s: (B[i] - piv[s][ref]).length)
+    def add_key(name, idx, s, ref):
+        kb = face.shape_key_add(name=name, from_mix=False)
+        for i in idx:
+            p0 = piv[side_of(i, ref)][ref] if ref != 'hl' else hl_c[0 if B[i].x > 0 else 1]
+            d = B[i] - p0
+            kb.data[i].co = Vector((p0.x + d.x * s, B[i].y, p0.z + d.z * s))
+    hlp = [B[i] for i in hl_idx]
+    hl_c = [sum((p for p in hlp if p.x > 0), Vector()) / max(1, sum(1 for p in hlp if p.x > 0)),
+            sum((p for p in hlp if p.x <= 0), Vector()) / max(1, sum(1 for p in hlp if p.x <= 0))]
+    add_key('EYE_PupilDilate', new_idx['pupil'], 1.45, 'pupil')
+    add_key('EYE_PupilConstrict', new_idx['pupil'], 0.62, 'pupil')
+    add_key('EYE_IrisGrow', iris_idx + new_idx['glow'] + new_idx['pupil'], 1.07, 'iris')
+    add_key('EYE_HighlightGrow', hl_idx, 1.35, 'hl')
+    # 4. eye expressions: shape-key binds + material binds
+    bsm = ext.vrm0.blend_shape_master
+    matmap = {'hl': hl_mat, 'glow': glow_mat, 'white': white_mat, 'pupil': pupil_mat}
+    for gname, spec in EYE_EMO.items():
+        g = bsm.blend_shape_groups.add(); g.name = gname; g.preset_name = 'unknown'
+        for key, w in spec['keys'].items():
+            b = g.binds.add(); b.mesh.mesh_object_name = face.name; b.index = key; b.weight = w
+        for mk, (prop, val) in spec['mats'].items():
+            mv = g.material_values.add(); mv.material = matmap[mk]; mv.property_name = prop
+            for c in val: mv.target_value.add().value = c
+    log('eyes', f'layers glow/pupil +{len(new_idx["glow"]) + len(new_idx["pupil"])} verts',
+        f'{len(EYE_EMO)} eye expressions', 'pivots mm', {s: tuple(round(x * 1000, 1) for x in piv[s]['pupil']) for s in piv})
 
 
 # ---------------------------------------------------------------- hair: our own, replacing VRoid's
