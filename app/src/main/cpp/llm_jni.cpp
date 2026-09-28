@@ -72,6 +72,22 @@ Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstr
 JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_cancel(JNIEnv *, jobject) { g_engine.cancel(); }
 
+JNIEXPORT jstring JNICALL
+Java_dev_playground_companion_engine_NativeLlm_completeIsolated(JNIEnv * env, jobject, jstring system, jstring user, jint max_tokens, jint n_ctx) {
+    std::string out;
+    try { out = g_engine.complete_isolated(to_std(env, system), to_std(env, user), max_tokens, n_ctx); }
+    catch (const std::exception & e) { __android_log_print(ANDROID_LOG_ERROR, TAG, "complete failed: %s", e.what()); }
+    // Bytes -> String on the Kotlin side would need a callback; the output here is plain notes text,
+    // so drop anything NewStringUTF can't carry (4-byte UTF-8, e.g. emoji) instead of crashing.
+    std::string safe;
+    for (size_t i = 0; i < out.size(); ++i) {
+        const unsigned char c = out[i];
+        if ((c & 0xF8) == 0xF0) { i += 3; continue; }
+        safe += (char) c;
+    }
+    return env->NewStringUTF(safe.c_str());
+}
+
 JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_retractLastReply(JNIEnv *, jobject) { g_engine.retract_last_reply(); }
 

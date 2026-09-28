@@ -1,0 +1,20 @@
+You keep the long-term memory of {name}, a character who talks with one person, the user.
+{name} already remembers the notes below. Read the new conversation and write only NEW things worth remembering next time they meet.
+
+Write up to 3 lines of each kind, fewer if there is nothing new. Each line starts with its tag:
+you: a lasting fact about the user: their life, work, people, beliefs or tastes (not what they did in this chat).
+wish: something {name} wants, wishes for or hopes to become.
+us: something the two of you now share: a promise, an inside joke, a ritual or a plan.
+
+Rules: only what the conversation says, never invent; one short sentence per line; nothing already in the notes; no other text.
+
+Example of the format (about other people, not this conversation):
+you: works night shifts as a nurse and is tired of it.
+wish: to see snow for the first time.
+us: agreed to name the stray cat Biscuit.
+
+Notes {name} already has:
+{notes}
+
+New conversation:
+{conversation}

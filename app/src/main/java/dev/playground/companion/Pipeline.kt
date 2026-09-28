@@ -10,6 +10,8 @@ import dev.playground.companion.engine.Emotion
 import dev.playground.companion.engine.EmotionTagStream
 import dev.playground.companion.engine.Envelope
 import dev.playground.companion.engine.LlmModel
+import dev.playground.companion.engine.Memory
+import dev.playground.companion.engine.MemoryStore
 import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.RobotFilter
@@ -189,7 +191,7 @@ class Pipeline(
     }
 
     private fun applyCharacter(c: Character) {
-        NativeLlm.setSystem(c.systemPrompt)
+        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id))))
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
     }
 
@@ -290,6 +292,7 @@ class Pipeline(
         replySoFar = StringBuilder()
         val trace = TurnTrace(turn, "${character.name}, ${llmModel.label}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
         trace.character = character.name
+        trace.characterId = character.id
         trace.userText = text
         trace.heardAt = heardAt
         trace.recognizeMs = recognizeMs
@@ -345,6 +348,45 @@ class Pipeline(
         return turn
     }
 
+    // ---- long-term memory -----------------------------------------------------------------
+    private val memory = MemoryStore(java.io.File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "memory"))
+    private val distillTemplate by lazy { ctx.assets.open("memory/distill.txt").bufferedReader().use { it.readText() } }
+    @Volatile private var stops = 0
+
+    /**
+     * Distills every character's heard-but-not-yet-remembered exchanges into their notes, in a
+     * scratch context (the live conversation is untouched). Meant for when the app goes to the
+     * background; any stop() (you came back and spoke) ends it, and the rest waits for next time.
+     * New notes reach a character's prompt at the next launch or character switch.
+     */
+    fun remember(onDone: (String) -> Unit) = llmExec.execute {
+        val report = mutableListOf<String>()
+        run all@{
+            for (c in CHARACTERS) {
+                var notes = memory.notes(c.id)
+                for ((conversation, n) in Memory.chunks(memory.pending(c.id), c.name)) {
+                    val before = stops
+                    val out = NativeLlm.completeIsolated(DISTILL_SYSTEM, Memory.fill(distillTemplate, c.name, notes, conversation), 250, 4096)
+                    if (stops != before) { report += "${c.name}: paused (you came back)"; return@all }
+                    val added = Memory.parse(out)
+                    notes = Memory.merge(notes, added)
+                    memory.saveNotes(c.id, notes)
+                    memory.consume(c.id, n)
+                    report += "${c.name} +${added.size}" + added.joinToString("") { "\n  $it" }
+                }
+            }
+        }
+        onDone(report.joinToString("\n"))
+    }
+
+    /** Everything each character remembers, for the Models menu. */
+    fun memoryReport(): String = CHARACTERS.joinToString("\n\n") { c ->
+        val notes = memory.notes(c.id)
+        val waiting = memory.pending(c.id).size
+        "${c.name}${if (waiting > 0) " ($waiting exchanges not remembered yet)" else ""}\n" +
+            (if (notes.isEmpty()) "  nothing yet" else notes.joinToString("\n") { "  $it" })
+    }
+
     /** Runs the voice benchmark on the LLM thread so it never overlaps a turn. */
     fun benchVoice(onPartial: (String) -> Unit, onDone: (String) -> Unit) {
         stop()
@@ -375,6 +417,7 @@ class Pipeline(
 
     /** Stops generation and silences audio immediately. */
     fun stop() {
+        stops++
         val wasHeld = synchronized(holdLock) {
             val h = heldTurn != 0
             heldTurn = 0
@@ -432,6 +475,8 @@ class Pipeline(
                     job.trace.doneAt = now()
                     job.trace.memAfter = MemProbe.read(ctx)
                     job.trace.heat = heat()
+                    // Heard to the end: worth remembering (distilled later by remember()).
+                    memory.addExchange(job.trace.characterId, job.trace.userText, SpeechText.clean(job.trace.replyText))
                     ui.onTurnDone(job.turn, job.trace.report())
                 }
             }
@@ -459,11 +504,14 @@ class Pipeline(
         /** After she stops, mic text matching her words is still treated as echo for this long. */
         const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
         const val ENVELOPE_FRAME_MS = 20
+        const val DISTILL_SYSTEM = "You write memory notes. Follow the format exactly."
+
     }
 }
 
 class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var character = ""
+    @Volatile var characterId = ""
     @Volatile var userText = ""
     @Volatile var replyText = ""
     class Chunk(val chars: Int, val synthMs: Long, val audioMs: Long)

@@ -245,4 +245,57 @@ void LlmEngine::retract_last_reply() {
     last_reply_stored_ = false;
 }
 
+std::string LlmEngine::complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx) {
+    if (!model_) return "";
+    cancel_.store(false);
+    llama_context_params cp = llama_context_default_params();
+    cp.n_ctx           = n_ctx;
+    cp.n_batch         = 64; // small batches: cancel() takes effect within ~2 s, not a 512-token decode
+    cp.n_ubatch        = 64;
+    cp.n_threads       = llama_n_threads(ctx_);
+    cp.n_threads_batch = llama_n_threads_batch(ctx_);
+    cp.swa_full        = false; // never shifted, so the sliding-window layers can keep only their window
+    llama_context * scratch = llama_init_from_model(model_, cp);
+    if (!scratch) return "";
+
+    common_chat_msg sys, usr;
+    sys.role = "system"; sys.content = system;
+    usr.role = "user";   usr.content = user;
+    const auto prompt = common_tokenize(scratch, render_text({sys, usr}, true), /*add_special*/ true, /*parse_special*/ true);
+    std::string out;
+    if ((int) prompt.size() + max_tokens < n_ctx) {
+        llama_batch b = llama_batch_init(64, 0, 1);
+        bool ok = true;
+        for (size_t i = 0; ok && i < prompt.size(); i += 64) {
+            if (cancel_.load()) { ok = false; break; }
+            const size_t n = std::min((size_t) 64, prompt.size() - i);
+            common_batch_clear(b);
+            for (size_t j = 0; j < n; ++j) common_batch_add(b, prompt[i + j], (llama_pos) (i + j), {0}, i + j == prompt.size() - 1);
+            ok = llama_decode(scratch, b) == 0;
+        }
+        common_params_sampling sp;
+        sp.temp = 0.3f;
+        sp.top_p = 0.9f;
+        sp.penalty_repeat = 1.15f; // list-writing makes small models loop on one line
+        sp.penalty_last_n = 256;
+        common_sampler * smp = ok ? common_sampler_init(model_, sp) : nullptr;
+        const llama_vocab * vocab = llama_model_get_vocab(model_);
+        for (int i = 0; smp && i < max_tokens; ++i) {
+            if (cancel_.load()) { out.clear(); break; }
+            const llama_token tok = common_sampler_sample(smp, scratch, -1);
+            common_sampler_accept(smp, tok, true);
+            if (llama_vocab_is_eog(vocab, tok)) break;
+            out += common_token_to_piece(scratch, tok);
+            common_batch_clear(b);
+            common_batch_add(b, tok, (llama_pos) (prompt.size() + i), {0}, true);
+            if (llama_decode(scratch, b) != 0) break;
+        }
+        if (smp) common_sampler_free(smp);
+        llama_batch_free(b);
+        if (cancel_.load()) out.clear();
+    }
+    llama_free(scratch);
+    return out;
+}
+
 std::string LlmEngine::system_info() const { return llama_print_system_info(); }

@@ -21,3 +21,7 @@ target_link_libraries(llm_host_test PRIVATE llama llama-common)
 add_executable(persona_eval persona_eval.cpp ${APP_CPP}/llm_engine.cpp)
 target_include_directories(persona_eval PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
 target_link_libraries(persona_eval PRIVATE llama llama-common)
+
+add_executable(memory_eval memory_eval.cpp ${APP_CPP}/llm_engine.cpp)
+target_include_directories(memory_eval PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
+target_link_libraries(memory_eval PRIVATE llama llama-common)

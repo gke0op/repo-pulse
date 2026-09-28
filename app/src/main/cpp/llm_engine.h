@@ -53,6 +53,10 @@ public:
     // message stays, so the next one joins it. No-op if the last reply() stored nothing.
     void retract_last_reply();
 
+    // One-off completion in a scratch context (the conversation's cache is untouched), e.g. to
+    // distill memories. Low temperature; cancel() aborts it. Returns "" on failure or cancel.
+    std::string complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx);
+
     std::string system_info() const;
 
 private:

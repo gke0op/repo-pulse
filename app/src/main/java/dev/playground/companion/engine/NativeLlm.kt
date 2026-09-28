@@ -26,6 +26,8 @@ object NativeLlm {
     external fun cancel()
     /** Forget the last reply (nobody heard it); the next user message joins the unanswered one. */
     external fun retractLastReply()
+    /** One-off completion in a scratch context; the conversation is untouched. "" if cancelled. */
+    external fun completeIsolated(system: String, user: String, maxTokens: Int, nCtx: Int): String
     external fun unload()
     external fun systemInfo(): String
 

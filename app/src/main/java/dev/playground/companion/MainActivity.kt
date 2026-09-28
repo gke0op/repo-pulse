@@ -289,7 +289,7 @@ class MainActivity : Activity(), Pipeline.Listener {
             val size = if (store.llmReady(m)) "" else " (download ${"%.1f".format(m.approxMb / 1024f)} GB)"
             "${mark}Brain: ${m.label}$size"
         }
-        val benches = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances", "Share this session's log")
+        val benches = listOf("Bench voices", "Bench recognizers on my last ${ears?.recent?.size ?: 0} utterances", "Memories", "Share this session's log")
         val looks = listOf("human" to "Look: humans (VRM)", "orb" to "Look: plasma orbs").map { (id, label) ->
             (if (id == (prefs.getString(PREF_LOOK, "human") ?: "human")) "✓ " else "") + label
         }
@@ -314,6 +314,7 @@ class MainActivity : Activity(), Pipeline.Listener {
                 }
                 which == firstBench -> runBench { onPartial, onDone -> pipeline.benchVoice(onPartial, onDone) }
                 which == firstBench + 1 -> runBench { onPartial, onDone -> pipeline.benchAsr(ears?.recent?.toList().orEmpty(), onPartial, onDone) }
+                which == firstBench + 2 -> AlertDialog.Builder(this).setTitle("Memories").setMessage(pipeline.memoryReport()).setPositiveButton("OK", null).show()
                 else -> shareLog()
             }
         }.show()
@@ -551,6 +552,12 @@ class MainActivity : Activity(), Pipeline.Listener {
         super.onResume()
         avatar.resumeRendering()
         governor.start()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Leaving the app: a good moment for the characters to remember today's conversation.
+        if (::pipeline.isInitialized) pipeline.remember { summary -> if (summary.isNotEmpty()) log.event("remembered: $summary") }
     }
 
     override fun onDestroy() {
