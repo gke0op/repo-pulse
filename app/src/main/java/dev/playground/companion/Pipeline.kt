@@ -315,7 +315,9 @@ class Pipeline(
                 val first = trace.firstChunkAt == 0L
                 if (first) { trace.firstChunkAt = now(); trace.firstChunkText = chunk }
                 // Voice first: the brain waits while the first chunk synthesizes (released in ttsLoop).
-                if (first && VOICE_FIRST) { trace.voiceFirst = true; NativeLlm.hold(true) }
+                // Only while the phone is cool: hot, the brain is already behind the voice (tonight,
+                // status 3: 1.8 s median silence inside replies) and pausing it would widen the gaps.
+                if (first && VOICE_FIRST && heatLevel == "cool") { trace.voiceFirst = true; NativeLlm.hold(true) }
                 ttsQueue.put(TtsJob.Speak(turn, chunk, trace, feeling, first))
             }
             fun spoken(text: String) {
@@ -458,7 +460,7 @@ class Pipeline(
                         var samples = v.synth(text, v.engine.speakerFor(character.id), character.speed)
                         robot?.let { samples = it.apply(samples) }
                         val synthMs = now() - t0
-                        if (job.first && VOICE_FIRST) NativeLlm.hold(false)
+                        if (job.first && job.trace.voiceFirst) NativeLlm.hold(false)
                         val audioMs = samples.size * 1000L / v.sampleRate
                         job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
                         if (job.turn != currentTurn) return@synchronized
@@ -468,6 +470,7 @@ class Pipeline(
                         val env = Envelope.of(samples, v.sampleRate, ENVELOPE_FRAME_MS)
                         audio.enqueue(samples, onStart = {
                             if (job.trace.firstAudioAt == 0L) job.trace.firstAudioAt = now()
+                            job.trace.plays += TurnTrace.Play(now(), audioMs)
                             if (job.turn == currentTurn) {
                                 job.emotion?.let(ui::onEmotion)
                                 ui.onSpeechChunk(env, ENVELOPE_FRAME_MS)
@@ -475,7 +478,7 @@ class Pipeline(
                         })
                     }
                 } finally {
-                    if (job.first && VOICE_FIRST) NativeLlm.hold(false) // every path, incl. unspeakable/dropped chunks
+                    if (job.first && job.trace.voiceFirst) NativeLlm.hold(false) // every path, incl. unspeakable/dropped chunks
                 }
                 is TtsJob.End -> synchronized(voiceLock) { audio }.marker {
                     if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
@@ -523,6 +526,11 @@ class Pipeline(
 }
 
 class TurnTrace(val turn: Int, val who: String, val t0: Long) {
+    companion object {
+        /** Below this the AudioTrack buffer (~2x min size) hides it; above it you hear a pause. */
+        const val GAP_MIN_MS = 120L
+    }
+
     @Volatile var character = ""
     @Volatile var characterId = ""
     @Volatile var userText = ""
@@ -551,6 +559,14 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var earlyTally = ""
     val chunks: MutableList<Chunk> = java.util.Collections.synchronizedList(mutableListOf())
     val emotions: MutableList<Emotion> = java.util.Collections.synchronizedList(mutableListOf())
+    /** When each chunk started playing and how long it is: silence between chunks = the voice falling behind. */
+    class Play(val at: Long, val audioMs: Long)
+    val plays: MutableList<Play> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** Gaps (ms) before chunk 2, 3, ...: how much later each started than the previous one ended. */
+    fun gaps(): List<Long> = synchronized(plays) {
+        plays.zipWithNext { a, b -> maxOf(0L, b.at - (a.at + a.audioMs)) }
+    }
 
     private fun rel(t: Long) = if (t == 0L) "—" else "${t - t0} ms"
 
@@ -577,6 +593,9 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         appendLine("  TTS         : ${chunks.size} chunks, synth ${synth} ms for ${audio} ms audio" +
             (if (audio > 0) " (RTF ${"%.2f".format(synth.toDouble() / audio)})" else "") +
             (if (first != null) ", first chunk synth ${first.synthMs} ms" else "") + (if (voiceFirst) " [voice first]" else ""))
+        val g = gaps().filter { it >= GAP_MIN_MS }
+        if (plays.size > 1) appendLine("  gaps        : " + if (g.isEmpty()) "none" else
+            "${g.size} (total ${g.sum()} ms, longest ${g.max()} ms, after the first chunk ${gaps().first()} ms)")
         appendLine("  total       : ${rel(doneAt)}")
         if (emotions.isNotEmpty()) appendLine("  feeling     : ${emotions.joinToString(" -> ") { it.tag }}")
         val a = memAfter
