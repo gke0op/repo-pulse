@@ -4,8 +4,9 @@ Each test is two APKs that differ in one thing. Same package and signing key, so
 over the other keeps every model, setting and memory. Builds live in `~/Desktop/companion/ab/`.
 
 ```bash
-adb install -r ~/Desktop/companion/ab/companion-0.14.3-A-debug.apk        # A
-adb install -r ~/Desktop/companion/ab/companion-0.14.3-B-voicefirst-debug.apk  # B
+adb install -r ~/Desktop/companion/ab/companion-0.14.4-A-debug.apk        # A
+adb install -r ~/Desktop/companion/ab/companion-0.14.4-B-voicefirst-debug.apk  # B (test 1)
+adb install -r ~/Desktop/companion/ab/companion-0.14.4-B-brief-debug.apk  # B (test 2)
 ```
 
 How to run one: talk for ~10 minutes on A, then ~10 minutes on B, same character, phone equally
@@ -13,7 +14,7 @@ cool at the start of each (thermal status 0-1 in the turn report's `heat` line).
 (`adb pull /sdcard/Android/data/dev.playground.companion/files/logs`) and compare the turn reports.
 Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
-## 1. Voice first (0.14.3-A vs 0.14.3-B-voicefirst)
+## 1. Voice first (0.14.4-A vs 0.14.4-B-voicefirst)
 
 - **B:** while the first speech chunk synthesizes, the brain pauses (bounded, 1.5 s max), then
   carries on, **only while the phone is cool** (governor level `cool`). Hot, B behaves like A.
@@ -36,11 +37,32 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 - **Branches:** A = `claude/deprecated-repo-cleanup-playground-fle50c`, B = `ab/voice-first` (one
   commit on top: `VOICE_FIRST = true` + the version name).
 
+## 2. Brief (0.14.4-A vs 0.14.4-B-brief)
+
+- **B:** every message you send the brain gets a hidden reminder at its end, "(Out loud: one to
+  three short sentences.)", or, when you ask for a poem, song, story, something longer or an
+  explanation, "(Out loud: this time say the whole thing now, in full, no preamble.)". Your words
+  in the transcript and in memory stay as you said them.
+- **Why:** replies drift longer as a talk deepens (phone, last night: 26 -> 45 -> 60 -> 72 tokens by
+  quarter), and long replies are what stall a hot phone mid-reply. Replaying your 95 real lines to
+  Mira on the Mac (`tools/host-test/drift_eval`, raw output in `tools/host-test/results/drift_*`):
+
+  | variant | median tokens by quarter | total | normal replies > 80 tok | poem requests |
+  |---|---|---|---|---|
+  | A (no reminder) | 26 / 43 / 59 / 78 | 5,356 | 13 | full poems |
+  | system-prompt line | 40 / 59 / 68 / 84 | 6,208 | worse | |
+  | short reminder only | 31 / 31 / 35 / 36 | 3,237 | 0 | promised, never came |
+  | **B-brief** | **30 / 26 / 34 / 45** | **3,744** | **0** | **6/6 full poems** |
+- **Your call (ears only):** does she still feel like Mira at this length? Is anything lost in the
+  deep talks? Does the phone stay cooler and stall less (`heat`, `gaps`)?
+- **Branch:** `ab/brief` (one commit: the two reminder strings + version name).
+
 ## Measured and rejected (no A/B needed)
 
 - **Fewer denoising steps** for Supertonic: synth 305 ms (5 steps) -> 231 (4) -> 202 (3) -> 136 (2)
   on the Mac, but Parakeet word errors on the output 1.2% -> 3.6% -> 17.9% -> 22.0% ("Oh, hey there!"
   -> "Oh who they are."). Not worth it.
+- **A brevity line in the system prompt:** replies got *longer* (table above).
 - **Capping her long replies before memory distillation:** zero fewer distill chunks on tonight's
   three sessions (few replies are long enough to matter).
 - **Memory invents details** (fixed in both A and B, 0.14.1): with the app's exact prompt and tonight's

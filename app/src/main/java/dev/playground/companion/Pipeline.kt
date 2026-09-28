@@ -13,6 +13,7 @@ import dev.playground.companion.engine.Memory
 import dev.playground.companion.engine.MemoryStore
 import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
+import dev.playground.companion.engine.ReplyLength
 import dev.playground.companion.engine.RobotFilter
 import dev.playground.companion.engine.SentenceChunker
 import dev.playground.companion.engine.SpeechText
@@ -328,7 +329,7 @@ class Pipeline(
             }
             // Prefill "[" so every brain opens with an emotion tag (Llama 3.2 ignores the instruction otherwise).
             var prefilled = false
-            val stats = NativeLlm.replyStreaming(text, MAX_REPLY_TOKENS, "[") { bytes ->
+            val stats = NativeLlm.replyStreaming(ReplyLength.framed(text), MAX_REPLY_TOKENS, "[") { bytes ->
                 // The first callback is our own prefilled "[", not a generated token.
                 if (!prefilled) prefilled = true else if (trace.firstPieceAt == 0L) trace.firstPieceAt = now()
                 for (part in tags.push(String(bytes, Charsets.UTF_8))) when (part) {
