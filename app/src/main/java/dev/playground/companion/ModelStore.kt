@@ -192,8 +192,8 @@ class ModelStore(ctx: Context) {
         /** Fastest measured on S24 Ultra: RTF 0.40 at 2 threads (Kokoro fp32 best: 0.53 at 6). */
         val DEFAULT_VOICE = VoiceEngine.SUPERTONIC3
         /** Pinned to the commit that added them, so a download can never change under us. */
-        private const val AVATAR_COMMIT = "fd577571b4b1921bef768d3061f5d085fa60a8ff"
-        private const val AVATAR_REV = "fd57757"
+        private const val AVATAR_COMMIT = "6dc11dfb9c7cf6f86012516c3ddd75c6c4ab61b5"
+        private const val AVATAR_REV = "6dc11df"
         private const val AVATAR_BASE =
             "https://raw.githubusercontent.com/gke0op/repo-pulse/$AVATAR_COMMIT/models/avatar"
         val AVATAR_MODELS = listOf("mira.vrm", "kai.vrm")

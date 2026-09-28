@@ -19,8 +19,9 @@ object Memory {
     /** Tagged lines from the brain's output (or a notes file); everything else is ignored. */
     fun parse(text: String): List<Note> = text.lines().mapNotNull { line ->
         val m = LINE.find(line.trim()) ?: return@mapNotNull null
-        val body = m.groupValues[2].replace("*", "").trim().trimEnd('.').trim()
-        if (words(body).size < 3) null else Note(Tag.valueOf(m.groupValues[1].uppercase()), "$body.")
+        val body = m.groupValues[2].replace("*", "").trim().replace(Regex("""([.!?]["”'])\.$"""), "$1")
+        val text = if (body.last() in ".!?\"”'") body else "$body."
+        if (words(body).size < 3) null else Note(Tag.valueOf(m.groupValues[1].uppercase()), text)
     }
 
     /** New notes win over old ones that say nearly the same thing; each tag keeps its most recent [Tag.cap]. */

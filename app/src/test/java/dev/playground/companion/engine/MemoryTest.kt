@@ -36,6 +36,12 @@ class MemoryTest {
         assertEquals(many.last(), merged.last()) // most recent kept
     }
 
+    @Test fun sentenceEndsOnce() {
+        assertEquals("To understand human concepts of “beauty.”", Memory.parse("wish: To understand human concepts of “beauty.”.").single().text)
+        assertEquals("to see snow someday.", Memory.parse("wish: to see snow someday").single().text)
+        assertEquals("to see snow someday.", Memory.parse("wish: to see snow someday.").single().text)
+    }
+
     @Test fun differentThingsAreNotSimilar() {
         assertTrue(!Memory.similar("works night shifts as a nurse", "has a cat called Pixel"))
     }
