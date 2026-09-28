@@ -580,7 +580,7 @@ class Pipeline(
          * synth 330 ms alone vs 1,136 ms beside 4-thread Gemma generation; the phone's first-chunk
          * synth is ~1.2 s. Off in build A, on in build B (branch ab/voice-first).
          */
-        const val VOICE_FIRST = false
+        const val VOICE_FIRST = true
         const val DISTILL_SYSTEM = "You write memory notes. Follow the format exactly."
 
     }
