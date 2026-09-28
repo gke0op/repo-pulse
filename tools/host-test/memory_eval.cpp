@@ -48,7 +48,8 @@ int main(int argc, char ** argv) {
     replace_all(prompt, "{name}", name);
     replace_all(prompt, "{notes}", "(none yet)");
     replace_all(prompt, "{conversation}", conv);
-    const std::string notes = eng.complete_isolated("You write memory notes. Follow the format exactly.", prompt, 250, 4096);
+    std::string notes;
+    if (!eng.complete_isolated("You write memory notes. Follow the format exactly.", prompt, 250, 4096, notes)) { std::fprintf(stderr, "distill failed\n"); return 1; }
     std::printf("\n--- notes ---\n%s\n-------------\n", notes.c_str());
 
     eng.set_system("You are " + name + ". Reply in one to three short spoken sentences. No lists.\n"

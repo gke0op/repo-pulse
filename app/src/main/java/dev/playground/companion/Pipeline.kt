@@ -1,7 +1,6 @@
 package dev.playground.companion
 
 import android.content.Context
-import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 import dev.playground.companion.engine.AudioOut
@@ -67,6 +66,8 @@ class Pipeline(
     private var robot: RobotFilter? = null
 
     @Volatile private var currentTurn = 0
+    /** currentTurn is bumped from the UI, ears and ears-2nd threads; a lost update would strand a turn. */
+    private val turnLock = Any()
     @Volatile var character: Character = CHARACTERS[0]; private set
     var loadReport = ""; private set
 
@@ -287,7 +288,7 @@ class Pipeline(
 
     fun say(text: String, heardAt: Long = 0L, recognizeMs: Long = 0L, held: Boolean = false): Int {
         stop()
-        val turn = ++currentTurn
+        val turn = synchronized(turnLock) { ++currentTurn }
         activeTurn = turn
         replySoFar = StringBuilder()
         val trace = TurnTrace(turn, "${character.name}, ${llmModel.label}, ${voiceEngine.label}", SystemClock.elapsedRealtime())
@@ -364,24 +365,31 @@ class Pipeline(
      * background; any stop() (you came back and spoke) ends it, and the rest waits for next time.
      * New notes reach a character's prompt at the next launch or character switch.
      */
-    fun remember(onDone: (String) -> Unit) = llmExec.execute {
-        val report = mutableListOf<String>()
-        run all@{
-            for (c in CHARACTERS) {
-                var notes = memory.notes(c.id)
-                for ((conversation, n) in Memory.chunks(memory.pending(c.id), c.name)) {
-                    val before = stops
-                    val out = NativeLlm.completeIsolated(DISTILL_SYSTEM, Memory.fill(distillTemplate, c.name, notes, conversation), 250, 4096)
-                    if (stops != before) { report += "${c.name}: paused (you came back)"; return@all }
-                    val added = Memory.parse(out)
-                    notes = Memory.merge(notes, added)
-                    memory.saveNotes(c.id, notes)
-                    memory.consume(c.id, n)
-                    report += "${c.name} +${added.size}" + added.joinToString("") { "\n  $it" }
+    fun remember(onDone: (String) -> Unit) {
+        // Counted here, on the caller's thread: a stop() after leaving (you came back and spoke while
+        // this waited behind a reply) must still cancel it (review 2026-09-28).
+        val since = stops
+        llmExec.execute {
+            val report = mutableListOf<String>()
+            run all@{
+                for (c in CHARACTERS) {
+                    var notes = memory.notes(c.id)
+                    for ((conversation, n) in Memory.chunks(memory.pending(c.id), c.name)) {
+                        if (stops != since) { report += "${c.name}: paused (you came back)"; return@all }
+                        val out = NativeLlm.completeIsolated(DISTILL_SYSTEM, Memory.fill(distillTemplate, c.name, notes, conversation), 250, 4096)
+                        if (stops != since) { report += "${c.name}: paused (you came back)"; return@all }
+                        // Failed (no memory for a scratch context, too long, ...): keep the exchanges for next time.
+                        if (out == null) { report += "${c.name}: couldn't distill, kept for next time"; return@all }
+                        val added = Memory.parse(out)
+                        notes = Memory.merge(notes, added)
+                        memory.saveNotes(c.id, notes)
+                        memory.consume(c.id, n)
+                        report += "${c.name} +${added.size}" + added.joinToString("") { "\n  $it" }
+                    }
                 }
             }
+            onDone(report.joinToString("\n"))
         }
-        onDone(report.joinToString("\n"))
     }
 
     /** Everything each character remembers, for the Models menu. */
@@ -423,26 +431,30 @@ class Pipeline(
     /** Stops generation and silences audio immediately. */
     fun stop() {
         stops++
-        val wasHeld = synchronized(holdLock) {
+        // Read the gate under the lock: a say(held) on another thread may be installing a new one.
+        val (wasHeld, gate) = synchronized(holdLock) {
             val h = heldTurn != 0
             heldTurn = 0
             deferred.clear()
-            h
+            h to holdGate
         }
         if (speaking && !wasHeld) {
             speakingEndedAt = now()
             ui.onInterrupted()
         }
         // Cut off before you heard a word: take the reply back, so your next words join your last ones.
-        val unheard = activeTurn != 0 && activeTrace?.firstAudioAt == 0L
+        // Only that turn's own reply (if it ran at all: trace.llm is set on the llm thread, before this
+        // task). A dropped early start also takes back your words: the final utterance re-sends all of them.
+        val t = activeTrace
+        val unheard = activeTurn != 0 && t != null && t.firstAudioAt == 0L
         activeTurn = 0
-        currentTurn++
+        synchronized(turnLock) { currentTurn++ }
         NativeLlm.cancel()
         NativeLlm.hold(false)
         ttsQueue.clear()
-        holdGate.countDown()
+        gate.countDown()
         if (::audio.isInitialized) audio.flush()
-        if (unheard) llmExec.execute { NativeLlm.retractLastReply() }
+        if (unheard) llmExec.execute { t!!.llm?.let { NativeLlm.retractLastReply(it.replyId, dropUser = t.early && !t.committed) } }
     }
 
     private fun ttsLoop() {
@@ -480,14 +492,19 @@ class Pipeline(
                 } finally {
                     if (job.first && job.trace.voiceFirst) NativeLlm.hold(false) // every path, incl. unspeakable/dropped chunks
                 }
-                is TtsJob.End -> synchronized(voiceLock) { audio }.marker {
-                    if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
-                    job.trace.doneAt = now()
-                    job.trace.memAfter = MemProbe.read(ctx)
-                    job.trace.heat = heat()
-                    // Heard to the end: worth remembering (distilled later by remember()).
-                    memory.addExchange(job.trace.characterId, job.trace.userText, SpeechText.clean(job.trace.replyText))
-                    ui.onTurnDone(job.turn, job.trace.report())
+                is TtsJob.End -> {
+                    // A held reply with nothing speakable must not end (and discard your utterance) before commit.
+                    if (job.turn == heldTurn) holdGate.await()
+                    if (job.turn != currentTurn) continue
+                    synchronized(voiceLock) { audio }.marker {
+                        if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
+                        job.trace.doneAt = now()
+                        job.trace.memAfter = MemProbe.read(ctx)
+                        job.trace.heat = heat()
+                        // Heard to the end: worth remembering (distilled later by remember()).
+                        memory.addExchange(job.trace.characterId, job.trace.userText, SpeechText.clean(job.trace.replyText))
+                        ui.onTurnDone(job.turn, job.trace.report())
+                    }
                 }
             }
         }
@@ -498,11 +515,13 @@ class Pipeline(
     private val power = ctx.getSystemService(PowerManager::class.java)
     /** The thermal governor's current avatar level, for the turn report. */
     @Volatile var heatLevel = "cool"
+    /** The governor's last (status, headroom) reading; the turn report never calls the API itself. */
+    @Volatile var heatReading: () -> Pair<Int, Float> = { power.currentThermalStatus to Float.NaN }
 
     /** Thermal status (0 none .. 6 shutdown) and headroom (1.0 = throttling starts), to explain slow turns. */
     private fun heat(): String {
-        val headroom = if (Build.VERSION.SDK_INT >= 30) power.getThermalHeadroom(0) else Float.NaN
-        return "status ${power.currentThermalStatus}, headroom ${"%.2f".format(headroom)}, avatar $heatLevel"
+        val (status, headroom) = heatReading()
+        return "status $status, headroom ${"%.2f".format(headroom)}, avatar $heatLevel"
     }
 
     companion object {

@@ -551,6 +551,7 @@ class MainActivity : Activity(), Pipeline.Listener {
     override fun onResume() {
         super.onResume()
         avatar.resumeRendering()
+        if (::pipeline.isInitialized) pipeline.heatReading = { governor.lastStatus to governor.lastHeadroom }
         governor.start()
     }
 

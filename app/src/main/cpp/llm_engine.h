@@ -20,6 +20,7 @@ struct LlmTurnStats {
     bool   rebuilt       = false; // context overflowed and history was trimmed
     int    shift_reused  = 0;     // on a trim: cached tokens kept by shifting instead of re-decoding
     bool   cancelled     = false;
+    long long reply_id   = 0;     // which reply() this was; retract_last_reply() must name it
 };
 
 class LlmEngine {
@@ -47,19 +48,24 @@ public:
                       const PieceFn & on_piece, LlmTurnStats & stats,
                       const std::string & prefix = "");
 
-    void cancel() { cancel_.store(true); }
+    // Cancels whatever reply()/complete_isolated() is running now. A generation counter, not a flag:
+    // a call that starts later can't clear a cancel meant for the one before it (review 2026-09-28).
+    void cancel() { cancel_gen_.fetch_add(1); }
 
     // Voice first: while true, generation waits between tokens (up to MAX_HOLD_MS per hold), so
     // the first speech chunk synthesizes without competing for the CPU. cancel() still wins.
     void hold(bool on) { hold_.store(on); }
 
-    // Forget the last reply if nobody heard it (cancelled before any audio played). The user
-    // message stays, so the next one joins it. No-op if the last reply() stored nothing.
-    void retract_last_reply();
+    // Forget reply [reply_id] if nobody heard it (cut off before any audio). No-op unless it is
+    // still the latest reply. [drop_user]: also undo the user text that reply added (an early
+    // start the user kept talking over: the final utterance re-sends all of it, so keeping it
+    // would double it). Otherwise the user text stays and the next message joins it.
+    void retract_last_reply(long long reply_id, bool drop_user);
 
     // One-off completion in a scratch context (the conversation's cache is untouched), e.g. to
     // distill memories. Low temperature; cancel() aborts it. Returns "" on failure or cancel.
-    std::string complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx);
+    // False if it failed or was cancelled (out is then empty).
+    bool complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx, std::string & out);
 
     std::string system_info() const;
 
@@ -80,7 +86,12 @@ private:
 
     std::vector<common_chat_msg> msgs_;      // msgs_[0] is the system message
     std::vector<llama_token>     kv_tokens_; // exactly what is in the KV cache, in order
-    std::atomic<bool>            cancel_{false};
+    std::atomic<unsigned>        cancel_gen_{0};
     std::atomic<bool>            hold_{false};
     bool                         last_reply_stored_ = false;
+    long long                    reply_id_ = 0;
+    // How to undo the user text of the latest reply(): it pushed a new message, or appended to the
+    // dangling one (whose previous content is kept here).
+    bool                         undo_valid_ = false, undo_pushed_ = false;
+    std::string                  undo_prev_content_;
 };

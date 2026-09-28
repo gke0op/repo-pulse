@@ -40,7 +40,7 @@ Java_dev_playground_companion_engine_NativeLlm_setSystem(JNIEnv * env, jobject, 
 }
 
 // Streams UTF-8 pieces to sink.onPiece(byte[]): Boolean. Returns
-// [promptTokens, prefillMs, genTokens, genMs, rebuilt, cancelled, shiftReused].
+// [promptTokens, prefillMs, genTokens, genMs, rebuilt, cancelled, shiftReused, replyId].
 JNIEXPORT jdoubleArray JNICALL
 Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstring user, jint max_tokens, jstring prefix, jobject sink) {
     jclass    cls       = env->GetObjectClass(sink);
@@ -62,37 +62,37 @@ Java_dev_playground_companion_engine_NativeLlm_reply(JNIEnv * env, jobject, jstr
         __android_log_print(ANDROID_LOG_ERROR, TAG, "reply failed: %s", e.what());
     }
 
-    const jdouble vals[7] = { (double) st.prompt_tokens, st.prefill_ms, (double) st.gen_tokens, st.gen_ms,
-                              st.rebuilt ? 1.0 : 0.0, st.cancelled ? 1.0 : 0.0, (double) st.shift_reused };
-    jdoubleArray out = env->NewDoubleArray(7);
-    env->SetDoubleArrayRegion(out, 0, 7, vals);
+    const jdouble vals[8] = { (double) st.prompt_tokens, st.prefill_ms, (double) st.gen_tokens, st.gen_ms,
+                              st.rebuilt ? 1.0 : 0.0, st.cancelled ? 1.0 : 0.0, (double) st.shift_reused, (double) st.reply_id };
+    jdoubleArray out = env->NewDoubleArray(8);
+    env->SetDoubleArrayRegion(out, 0, 8, vals);
     return out;
 }
 
 JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_cancel(JNIEnv *, jobject) { g_engine.cancel(); }
 
-JNIEXPORT jstring JNICALL
-Java_dev_playground_companion_engine_NativeLlm_completeIsolated(JNIEnv * env, jobject, jstring system, jstring user, jint max_tokens, jint n_ctx) {
+// UTF-8 bytes (decoded in Kotlin, like reply()): NewStringUTF needs *modified* UTF-8 and aborts on
+// anything else under CheckJNI. Null = failed or cancelled.
+JNIEXPORT jbyteArray JNICALL
+Java_dev_playground_companion_engine_NativeLlm_completeIsolatedBytes(JNIEnv * env, jobject, jstring system, jstring user, jint max_tokens, jint n_ctx) {
     std::string out;
-    try { out = g_engine.complete_isolated(to_std(env, system), to_std(env, user), max_tokens, n_ctx); }
+    bool ok = false;
+    try { ok = g_engine.complete_isolated(to_std(env, system), to_std(env, user), max_tokens, n_ctx, out); }
     catch (const std::exception & e) { __android_log_print(ANDROID_LOG_ERROR, TAG, "complete failed: %s", e.what()); }
-    // Bytes -> String on the Kotlin side would need a callback; the output here is plain notes text,
-    // so drop anything NewStringUTF can't carry (4-byte UTF-8, e.g. emoji) instead of crashing.
-    std::string safe;
-    for (size_t i = 0; i < out.size(); ++i) {
-        const unsigned char c = out[i];
-        if ((c & 0xF8) == 0xF0) { i += 3; continue; }
-        safe += (char) c;
-    }
-    return env->NewStringUTF(safe.c_str());
+    if (!ok) return nullptr;
+    jbyteArray arr = env->NewByteArray((jsize) out.size());
+    env->SetByteArrayRegion(arr, 0, (jsize) out.size(), reinterpret_cast<const jbyte *>(out.data()));
+    return arr;
 }
 
 JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_hold(JNIEnv *, jobject, jboolean on) { g_engine.hold(on == JNI_TRUE); }
 
 JNIEXPORT void JNICALL
-Java_dev_playground_companion_engine_NativeLlm_retractLastReply(JNIEnv *, jobject) { g_engine.retract_last_reply(); }
+Java_dev_playground_companion_engine_NativeLlm_retractLastReply(JNIEnv *, jobject, jlong reply_id, jboolean drop_user) {
+    g_engine.retract_last_reply(reply_id, drop_user == JNI_TRUE);
+}
 
 JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_unload(JNIEnv *, jobject) { g_engine.unload(); }

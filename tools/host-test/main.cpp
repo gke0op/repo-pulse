@@ -76,9 +76,16 @@ int main(int argc, char ** argv) {
     {
         LlmTurnStats s4; int k = 0;
         chat.reply("I've been working", 96, [&](const std::string &) { return ++k < 3; }, s4, "[");
-        chat.retract_last_reply();
+        chat.retract_last_reply(s4.reply_id, /*drop_user*/ false);
         auto r = chat.reply("on a companion app with a machine character.", 96, [](const std::string &) { return true; }, s4, "[");
         std::printf("split turn, retracted + joined: prefill %d tok -> %s\n", s4.prompt_tokens, r.c_str());
+        // Dropped early start: the final re-sends the whole utterance, so the early text must go too.
+        LlmTurnStats s5; int k2 = 0;
+        chat.reply("I went to the store", 96, [&](const std::string &) { return ++k2 < 3; }, s5, "[");
+        chat.retract_last_reply(s5.reply_id, /*drop_user*/ true);
+        chat.retract_last_reply(s5.reply_id - 1, true); // stale id: must be a no-op
+        auto r2 = chat.reply("I went to the store and bought oat milk. Guess what I forgot?", 96, [](const std::string &) { return true; }, s5, "[");
+        std::printf("early start dropped + full final: prefill %d tok -> %s\n", s5.prompt_tokens, r2.c_str());
     }
 
     // Voice first: a hold from another thread pauses generation between tokens; release resumes it,

@@ -20,10 +20,14 @@ class ThermalGovernor(ctx: Context, private val onLevel: (Level) -> Unit) {
     private val power = ctx.getSystemService(PowerManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     var level = Level.COOL; private set
+    /** The last reading, for the turn report: only this class calls the API (Android returns NaN when asked >1/s). */
+    @Volatile var lastHeadroom = Float.NaN; private set
+    @Volatile var lastStatus = 0; private set
 
     private val poll = object : Runnable {
         override fun run() {
-            val next = decide(headroom(), power.currentThermalStatus, level)
+            lastHeadroom = headroom(); lastStatus = power.currentThermalStatus
+            val next = decide(lastHeadroom, lastStatus, level)
             if (next != level) { level = next; onLevel(next) }
             handler.postDelayed(this, POLL_MS)
         }
@@ -37,9 +41,17 @@ class ThermalGovernor(ctx: Context, private val onLevel: (Level) -> Unit) {
     companion object {
         const val POLL_MS = 10_000L
 
-        /** Up at 0.85 / 0.95 headroom (or status >= 3), back down only 0.05 below that. NaN headroom: status only. */
+        /**
+         * Up at 0.85 / 0.95 headroom (or status >= 3), back down only 0.05 below that. NaN headroom
+         * (no reading): status can raise the level but never lowers it, so a missing reading can't flap it to COOL.
+         */
         fun decide(headroom: Float, status: Int, current: Level): Level {
-            val h = if (headroom.isNaN()) when { status >= 3 -> 1f; status >= 2 -> 0.9f; else -> 0f } else headroom
+            if (headroom.isNaN()) return when {
+                status >= PowerManager.THERMAL_STATUS_SEVERE -> Level.HOT
+                status >= PowerManager.THERMAL_STATUS_MODERATE && current == Level.COOL -> Level.WARM
+                else -> current
+            }
+            val h = headroom
             val hot = h >= 0.95f || status >= PowerManager.THERMAL_STATUS_SEVERE
             val warm = h >= 0.85f
             return when (current) {

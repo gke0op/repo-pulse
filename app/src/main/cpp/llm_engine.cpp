@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <thread>
 
 #include "common.h"
@@ -167,16 +168,23 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
                              const PieceFn & on_piece, LlmTurnStats & stats,
                              const std::string & prefix) {
     stats = {};
-    cancel_.store(false);
+    const unsigned gen0 = cancel_gen_.load();
+    auto cancelled = [&] { return cancel_gen_.load() != gen0; };
     hold_.store(false);
     last_reply_stored_ = false;
+    stats.reply_id = ++reply_id_;
+    undo_valid_ = false;
     if (!ctx_ || msgs_.empty()) return "";
 
     // A turn that got no reply leaves its user message last. Fold the new text into it: roles
     // must alternate (Gemma's template throws otherwise) and the brain hears one whole message.
+    undo_valid_ = true;
     if (msgs_.back().role == "user") {
+        undo_pushed_ = false;
+        undo_prev_content_ = msgs_.back().content;
         msgs_.back().content += " " + user_text;
     } else {
+        undo_pushed_ = true;
         common_chat_msg user;
         user.role    = "user";
         user.content = user_text;
@@ -210,11 +218,11 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
     const double t0 = now_ms();
     for (int i = 0; i < max_tokens && !stats.cancelled; ++i) {
         // Voice first (see hold()); bounded so a missed release can never stall a reply.
-        for (const double h0 = now_ms(); hold_.load() && !cancel_.load();) {
+        for (const double h0 = now_ms(); hold_.load() && !cancelled();) {
             if (now_ms() - h0 >= 1500) { hold_.store(false); break; } // the hold expires, not just this wait
             std::this_thread::sleep_for(std::chrono::milliseconds(3));
         }
-        if (cancel_.load()) { stats.cancelled = true; break; }
+        if (cancelled()) { stats.cancelled = true; break; }
         if ((int) kv_tokens_.size() >= n_ctx_) break;
 
         const llama_token tok = common_sampler_sample(sampler_, ctx_, -1);
@@ -247,14 +255,22 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
     return reply_text;
 }
 
-void LlmEngine::retract_last_reply() {
+void LlmEngine::retract_last_reply(long long reply_id, bool drop_user) {
+    if (reply_id != reply_id_) return; // a newer reply ran since: nothing of that one is last any more
     if (last_reply_stored_ && msgs_.size() > 1 && msgs_.back().role == "assistant") msgs_.pop_back();
     last_reply_stored_ = false;
+    if (drop_user && undo_valid_ && msgs_.size() > 1 && msgs_.back().role == "user") {
+        if (undo_pushed_) msgs_.pop_back();
+        else msgs_.back().content = undo_prev_content_;
+    }
+    undo_valid_ = false;
 }
 
-std::string LlmEngine::complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx) {
-    if (!model_) return "";
-    cancel_.store(false);
+bool LlmEngine::complete_isolated(const std::string & system, const std::string & user, int max_tokens, int n_ctx, std::string & out) {
+    out.clear();
+    if (!model_) return false;
+    const unsigned gen0 = cancel_gen_.load();
+    auto cancelled = [&] { return cancel_gen_.load() != gen0; };
     llama_context_params cp = llama_context_default_params();
     cp.n_ctx           = n_ctx;
     cp.n_batch         = 64; // small batches: cancel() takes effect within ~2 s, not a 512-token decode
@@ -262,47 +278,45 @@ std::string LlmEngine::complete_isolated(const std::string & system, const std::
     cp.n_threads       = llama_n_threads(ctx_);
     cp.n_threads_batch = llama_n_threads_batch(ctx_);
     cp.swa_full        = false; // never shifted, so the sliding-window layers can keep only their window
-    llama_context * scratch = llama_init_from_model(model_, cp);
-    if (!scratch) return "";
+    // RAII: a throwing template or tokenizer must not leak the scratch KV cache (review 2026-09-28).
+    std::unique_ptr<llama_context, decltype(&llama_free)> scratch(llama_init_from_model(model_, cp), &llama_free);
+    if (!scratch) return false;
 
     common_chat_msg sys, usr;
     sys.role = "system"; sys.content = system;
     usr.role = "user";   usr.content = user;
-    const auto prompt = common_tokenize(scratch, render_text({sys, usr}, true), /*add_special*/ true, /*parse_special*/ true);
-    std::string out;
-    if ((int) prompt.size() + max_tokens < n_ctx) {
-        llama_batch b = llama_batch_init(64, 0, 1);
-        bool ok = true;
-        for (size_t i = 0; ok && i < prompt.size(); i += 64) {
-            if (cancel_.load()) { ok = false; break; }
-            const size_t n = std::min((size_t) 64, prompt.size() - i);
-            common_batch_clear(b);
-            for (size_t j = 0; j < n; ++j) common_batch_add(b, prompt[i + j], (llama_pos) (i + j), {0}, i + j == prompt.size() - 1);
-            ok = llama_decode(scratch, b) == 0;
-        }
-        common_params_sampling sp;
-        sp.temp = 0.3f;
-        sp.top_p = 0.9f;
-        sp.penalty_repeat = 1.15f; // list-writing makes small models loop on one line
-        sp.penalty_last_n = 256;
-        common_sampler * smp = ok ? common_sampler_init(model_, sp) : nullptr;
-        const llama_vocab * vocab = llama_model_get_vocab(model_);
-        for (int i = 0; smp && i < max_tokens; ++i) {
-            if (cancel_.load()) { out.clear(); break; }
-            const llama_token tok = common_sampler_sample(smp, scratch, -1);
-            common_sampler_accept(smp, tok, true);
-            if (llama_vocab_is_eog(vocab, tok)) break;
-            out += common_token_to_piece(scratch, tok);
-            common_batch_clear(b);
-            common_batch_add(b, tok, (llama_pos) (prompt.size() + i), {0}, true);
-            if (llama_decode(scratch, b) != 0) break;
-        }
-        if (smp) common_sampler_free(smp);
-        llama_batch_free(b);
-        if (cancel_.load()) out.clear();
+    const auto prompt = common_tokenize(scratch.get(), render_text({sys, usr}, true), /*add_special*/ true, /*parse_special*/ true);
+    if ((int) prompt.size() + max_tokens >= n_ctx) return false;
+
+    std::unique_ptr<llama_batch, void (*)(llama_batch *)> b(new llama_batch(llama_batch_init(64, 0, 1)),
+        [](llama_batch * p) { llama_batch_free(*p); delete p; });
+    for (size_t i = 0; i < prompt.size(); i += 64) {
+        if (cancelled()) return false;
+        const size_t n = std::min((size_t) 64, prompt.size() - i);
+        common_batch_clear(*b);
+        for (size_t j = 0; j < n; ++j) common_batch_add(*b, prompt[i + j], (llama_pos) (i + j), {0}, i + j == prompt.size() - 1);
+        if (llama_decode(scratch.get(), *b) != 0) return false;
     }
-    llama_free(scratch);
-    return out;
+    common_params_sampling sp;
+    sp.temp = 0.3f;
+    sp.top_p = 0.9f;
+    sp.penalty_repeat = 1.15f; // list-writing makes small models loop on one line
+    sp.penalty_last_n = 256;
+    std::unique_ptr<common_sampler, decltype(&common_sampler_free)> smp(common_sampler_init(model_, sp), &common_sampler_free);
+    if (!smp) return false;
+    const llama_vocab * vocab = llama_model_get_vocab(model_);
+    for (int i = 0; i < max_tokens; ++i) {
+        if (cancelled()) { out.clear(); return false; }
+        const llama_token tok = common_sampler_sample(smp.get(), scratch.get(), -1);
+        common_sampler_accept(smp.get(), tok, true);
+        if (llama_vocab_is_eog(vocab, tok)) break;
+        out += common_token_to_piece(scratch.get(), tok);
+        common_batch_clear(*b);
+        common_batch_add(*b, tok, (llama_pos) (prompt.size() + i), {0}, true);
+        if (llama_decode(scratch.get(), *b) != 0) break;
+    }
+    if (cancelled()) { out.clear(); return false; }
+    return true;
 }
 
 std::string LlmEngine::system_info() const { return llama_print_system_info(); }

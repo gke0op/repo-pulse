@@ -26,5 +26,7 @@ class ThermalGovernorTest {
         assertEquals(Level.COOL, d(Float.NaN, 1, Level.COOL))
         assertEquals(Level.WARM, d(Float.NaN, 2, Level.COOL))
         assertEquals(Level.HOT, d(Float.NaN, 3, Level.COOL))
+        assertEquals(Level.HOT, d(Float.NaN, 1, Level.HOT))   // a missing reading never flaps it down
+        assertEquals(Level.WARM, d(Float.NaN, 0, Level.WARM))
     }
 }

@@ -13,6 +13,8 @@ object NativeLlm {
         val cancelled = v[5] != 0.0
         /** On a history trim: cached tokens kept by shifting the KV cache instead of re-decoding. */
         val shiftReused = v[6].toInt()
+        /** Names this reply for [retractLastReply]. */
+        val replyId = v[7].toLong()
         val tokPerSec get() = if (genMs > 0) genTokens * 1000.0 / genMs else 0.0
     }
 
@@ -24,12 +26,17 @@ object NativeLlm {
     external fun setSystem(prompt: String): Boolean
     private external fun reply(user: String, maxTokens: Int, prefix: String, sink: PieceSink): DoubleArray
     external fun cancel()
-    /** Forget the last reply (nobody heard it); the next user message joins the unanswered one. */
-    external fun retractLastReply()
+    /**
+     * Forget reply [replyId] if it is still the latest (nobody heard it). [dropUser]: also undo its
+     * user text (a cancelled early start: the final utterance re-sends all of it).
+     */
+    external fun retractLastReply(replyId: Long, dropUser: Boolean)
     /** Voice first: pause generation between tokens (bounded to 1.5 s) so the first chunk synthesizes alone. */
     external fun hold(on: Boolean)
-    /** One-off completion in a scratch context; the conversation is untouched. "" if cancelled. */
-    external fun completeIsolated(system: String, user: String, maxTokens: Int, nCtx: Int): String
+    /** One-off completion in a scratch context; the conversation is untouched. Null if it failed or was cancelled. */
+    fun completeIsolated(system: String, user: String, maxTokens: Int, nCtx: Int): String? =
+        completeIsolatedBytes(system, user, maxTokens, nCtx)?.let { String(it, Charsets.UTF_8) }
+    private external fun completeIsolatedBytes(system: String, user: String, maxTokens: Int, nCtx: Int): ByteArray?
     external fun unload()
     external fun systemInfo(): String
 
