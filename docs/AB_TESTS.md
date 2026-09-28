@@ -70,7 +70,9 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
   raw answers in `tools/host-test/results/`). Inventions on questions the notes can't answer:
   no memory 9, notes v1 11, v2 7, **v3 3** (the memory block now says the notes are all she
   remembers, and that general memories have no details). Recall of what *is* in the notes went
-  up, not down. Left over: "What did we say we'd bake?" still gets an invented recipe (3/3).
+  up, not down. Left over: "What did we say we'd bake?" still gets an invented recipe (3/3); a v4
+  line about plans and promises didn't change it (still 3/3, rest unchanged), so it was dropped.
+  Likely fix is upstream: distill the specifics ("blueberry crumble pie") into the note itself.
 
 ## Next candidates (not built yet)
 
