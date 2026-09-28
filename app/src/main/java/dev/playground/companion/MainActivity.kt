@@ -612,7 +612,7 @@ class MainActivity : Activity(), Pipeline.Listener {
     }
 
     override fun onReplyComplete(trace: TurnTrace) =
-        log.turn(trace.character, trace.userText, trace.replyText, trace.emotions.joinToString(" -> ") { it.tag })
+        log.turn(trace.character, trace.userText, trace.replyText, trace.emotions.joinToString(" -> ") { it.tag }, cutOff = trace.llm?.cancelled == true)
 
     override fun onTurnDone(turn: Int, report: String) = runOnUiThread {
         log.report(report)

@@ -27,9 +27,9 @@ class SessionLog(ctx: Context) {
 
     fun event(what: String) = append("\n_${stamp("HH:mm:ss")} · ${what}_\n")
 
-    fun turn(who: String, user: String, reply: String, feelings: String) = append(
+    fun turn(who: String, user: String, reply: String, feelings: String, cutOff: Boolean = false) = append(
         "\n**You** (${stamp("HH:mm:ss")}): $user\n\n**$who**${if (feelings.isNotEmpty()) " [$feelings]" else ""}: " +
-            reply.ifBlank { "_(cut off before a word was heard; your next words joined this message)_" } + "\n",
+            reply.ifBlank { if (cutOff) "_(cut off before a word was heard; your next words joined this message)_" else "_(nothing to say)_" } + "\n",
     )
 
     fun report(report: String) = append("\n```\n${report.trimEnd()}\n```\n")

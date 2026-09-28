@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ThermalGovernorTest {
-    private fun d(h: Float, status: Int, cur: Level) = ThermalGovernor.decide(h, status, cur)
+    private fun d(h: Float, status: Int, cur: Level, recentReal: Boolean = false) = ThermalGovernor.decide(h, status, cur, recentReal)
 
     @Test fun stepsUpWithHeadroom() {
         assertEquals(Level.COOL, d(0.82f, 1, Level.COOL))
@@ -26,7 +26,9 @@ class ThermalGovernorTest {
         assertEquals(Level.COOL, d(Float.NaN, 1, Level.COOL))
         assertEquals(Level.WARM, d(Float.NaN, 2, Level.COOL))
         assertEquals(Level.HOT, d(Float.NaN, 3, Level.COOL))
-        assertEquals(Level.HOT, d(Float.NaN, 1, Level.HOT))   // a missing reading never flaps it down
-        assertEquals(Level.WARM, d(Float.NaN, 0, Level.WARM))
+        assertEquals(Level.HOT, d(Float.NaN, 1, Level.HOT, recentReal = true))   // a gap in real readings never flaps it down
+        assertEquals(Level.WARM, d(Float.NaN, 0, Level.WARM, recentReal = true))
+        assertEquals(Level.COOL, d(Float.NaN, 1, Level.HOT))   // no readings at all (API 29): status decides, down too
+        assertEquals(Level.WARM, d(Float.NaN, 2, Level.HOT))
     }
 }

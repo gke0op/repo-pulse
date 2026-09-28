@@ -23,11 +23,14 @@ class ThermalGovernor(ctx: Context, private val onLevel: (Level) -> Unit) {
     /** The last reading, for the turn report: only this class calls the API (Android returns NaN when asked >1/s). */
     @Volatile var lastHeadroom = Float.NaN; private set
     @Volatile var lastStatus = 0; private set
+    private var lastRealAt = 0L
 
     private val poll = object : Runnable {
         override fun run() {
             lastHeadroom = headroom(); lastStatus = power.currentThermalStatus
-            val next = decide(lastHeadroom, lastStatus, level)
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (!lastHeadroom.isNaN()) lastRealAt = now
+            val next = decide(lastHeadroom, lastStatus, level, recentReal = lastRealAt > 0 && now - lastRealAt < 60_000)
             if (next != level) { level = next; onLevel(next) }
             handler.postDelayed(this, POLL_MS)
         }
@@ -42,14 +45,16 @@ class ThermalGovernor(ctx: Context, private val onLevel: (Level) -> Unit) {
         const val POLL_MS = 10_000L
 
         /**
-         * Up at 0.85 / 0.95 headroom (or status >= 3), back down only 0.05 below that. NaN headroom
-         * (no reading): status can raise the level but never lowers it, so a missing reading can't flap it to COOL.
+         * Up at 0.85 / 0.95 headroom (or status >= 3), back down only 0.05 below that. NaN headroom:
+         * a gap in otherwise real readings ([recentReal]) holds the level, so it can't flap to COOL;
+         * with no readings at all (API 29, or a HAL without headroom) status alone decides, both ways.
          */
-        fun decide(headroom: Float, status: Int, current: Level): Level {
+        fun decide(headroom: Float, status: Int, current: Level, recentReal: Boolean = false): Level {
             if (headroom.isNaN()) return when {
                 status >= PowerManager.THERMAL_STATUS_SEVERE -> Level.HOT
-                status >= PowerManager.THERMAL_STATUS_MODERATE && current == Level.COOL -> Level.WARM
-                else -> current
+                recentReal -> if (status >= PowerManager.THERMAL_STATUS_MODERATE && current == Level.COOL) Level.WARM else current
+                status >= PowerManager.THERMAL_STATUS_MODERATE -> Level.WARM
+                else -> Level.COOL
             }
             val h = headroom
             val hot = h >= 0.95f || status >= PowerManager.THERMAL_STATUS_SEVERE
