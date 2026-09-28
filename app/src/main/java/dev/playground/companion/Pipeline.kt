@@ -15,6 +15,7 @@ import dev.playground.companion.engine.MemProbe
 import dev.playground.companion.engine.NativeLlm
 import dev.playground.companion.engine.ReplyLength
 import dev.playground.companion.engine.RobotFilter
+import dev.playground.companion.engine.Presence
 import dev.playground.companion.engine.SelfReport
 import dev.playground.companion.engine.TurnDetector
 import dev.playground.companion.engine.SentenceChunker
@@ -198,7 +199,8 @@ class Pipeline(
         val self = if (SelfReport.ENABLED && c.id == SelfReport.CHARACTER_ID)
             SelfReport.harness(llmModel.label, voiceEngine.label, CHARACTERS.filter { it.id != c.id }.map { it.name }) else ""
         selfTracker.reset()
-        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self))
+        presenceTracker.reset()
+        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self, if (Presence.ENABLED && self.isEmpty()) Presence.GUIDE else ""))
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
     }
 
@@ -310,6 +312,7 @@ class Pipeline(
         trace.recognizeMs = recognizeMs
         trace.early = held
         if (SelfReport.ENABLED && character.id == SelfReport.CHARACTER_ID) trace.readings = selfTracker.line(selfSnapshot())
+        else if (Presence.ENABLED) trace.readings = presenceNote(character.id)
         activeTrace = trace
         if (held) synchronized(holdLock) {
             holdGate = CountDownLatch(1)
@@ -390,7 +393,18 @@ class Pipeline(
             others = CHARACTERS.filter { it.id != SelfReport.CHARACTER_ID }.map { c -> c.name to memory.lastTalked(c.id)?.let { now - it } },
             notes = notes.size,
             wishes = notes.count { it.tag == Memory.Tag.WISH },
+            partOfDay = Presence.partOfDay(java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)),
         )
+    }
+
+    // ---- time and absence for the others (Presence) ---------------------------------------
+    private val presenceTracker = Presence.Tracker()
+
+    private fun presenceNote(id: String): String? {
+        val since = memory.lastTalked(id)?.let { System.currentTimeMillis() - it }
+        if (!presenceTracker.due(since)) return null
+        val talkedBefore = memory.notes(id).isNotEmpty() || memory.pending(id).isNotEmpty()
+        return Presence.note(since, java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY), talkedBefore)
     }
 
     // ---- long-term memory -----------------------------------------------------------------
@@ -544,7 +558,9 @@ class Pipeline(
                         memory.addExchange(job.trace.characterId, job.trace.userText, SpeechText.clean(job.trace.replyText))
                         memory.touch(job.trace.characterId)
                         lastHeard = job.trace
-                        if (job.trace.readings != null) selfTracker.heard()
+                        if (job.trace.readings != null) {
+                            if (SelfReport.ENABLED && job.trace.characterId == SelfReport.CHARACTER_ID) selfTracker.heard() else presenceTracker.heard()
+                        }
                         ui.onTurnDone(job.turn, job.trace.report())
                     }
                 }
@@ -616,7 +632,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var voiceFirst = false
     /** Smart Turn's P(done) at the pause that started this turn, or -1. */
     @Volatile var turnProb = -1f
-    /** Unit Seven's <<readings>> sent with this turn, if any (SelfReport). */
+    /** The silent note sent with this turn, if any: Unit Seven's <<readings>> (SelfReport) or the others' <<note>> (Presence). */
     @Volatile var readings: String? = null
     @Volatile var early = false
     @Volatile var committed = false

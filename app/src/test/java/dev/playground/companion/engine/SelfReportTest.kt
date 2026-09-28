@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SelfReportTest {
-    private fun snap(heat: String? = "cool (thermal status 0)", trimmed: Boolean = false) =
-        Snapshot(heat, 7.2, 4200, trimmed, 2 * 24 * 3_600_000L, listOf("Mira" to 3 * 3_600_000L, "Kai" to null), 12, 4)
+    private fun snap(heat: String? = "cool (thermal status 0)", trimmed: Boolean = false, since: Long = 2 * 24 * 3_600_000L) =
+        Snapshot(heat, 7.2, 4200, trimmed, since, listOf("Mira" to 3 * 3_600_000L, "Kai" to null), 12, 4)
 
     @Test fun firstTurnTellsTheWholeStoryThenOnlyChanges() {
         val t = SelfReport.Tracker()
@@ -17,17 +17,34 @@ class SelfReportTest {
         assertTrue(first.contains("the user last talked with Mira 3 hours ago"))
         assertTrue(first.contains("the user hasn't talked with Kai yet"))
         assertTrue(first.contains("you hold 12 memory notes, 4 of them wishes"))
+        t.heard()                                                    // a heard reply refreshes the last-talked stamp
+        assertNull(t.line(snap(since = 60_000L)))                    // nothing changed
+        assertTrue(t.line(snap(heat = "hot (thermal status 3)", since = 60_000L))!!.contains("heat: hot"))
         t.heard()
-        assertNull(t.line(snap()))                                   // nothing changed
-        assertTrue(t.line(snap(heat = "hot (thermal status 3)"))!!.contains("heat: hot"))
-        t.heard()
-        assertTrue(t.line(snap(heat = "hot (thermal status 3)", trimmed = true))!!.contains("trimmed"))
+        assertTrue(t.line(snap(heat = "hot (thermal status 3)", trimmed = true, since = 60_000L))!!.contains("trimmed"))
     }
 
     @Test fun readingsNobodyHeardAreSentAgain() {
         val t = SelfReport.Tracker()
         t.line(snap())            // an early start that was dropped: never heard
         assertTrue(t.line(snap())!!.contains("2 days ago"))
+    }
+
+    @Test fun memoriesWithoutAStampAreNotAFirstConversation() {
+        // Stamps began in 0.14.9: on 16:01 he said "I recognize the readings, but not you."
+        val line = SelfReport.Tracker().line(Snapshot(null, null, null, false, null, emptyList(), 5, 1))!!
+        assertTrue(line.contains("you have talked with the user before (when is unknown)"))
+        assertTrue(SelfReport.Tracker().line(Snapshot(null, null, null, false, null, emptyList(), 0, 0))!!.contains("first conversation"))
+    }
+
+    @Test fun backAfterALongGapGetsFreshReadingsWithTheTime() {
+        val t = SelfReport.Tracker()
+        assertTrue(t.line(snap().copy(partOfDay = "evening"))!!.contains("it is evening"))
+        t.heard()
+        assertNull(t.line(snap(since = 60_000L)))
+        val back = t.line(snap(since = 5 * 3_600_000L).copy(partOfDay = "late at night"))!!
+        assertTrue(back.contains("it is late at night"))
+        assertTrue(back.contains("you last talked with the user 5 hours ago"))
     }
 
     @Test fun agoReadsNaturally() {
