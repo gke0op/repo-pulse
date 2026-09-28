@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <thread>
 
 #include "common.h"
 #include "sampling.h"
@@ -167,6 +168,7 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
                              const std::string & prefix) {
     stats = {};
     cancel_.store(false);
+    hold_.store(false);
     last_reply_stored_ = false;
     if (!ctx_ || msgs_.empty()) return "";
 
@@ -207,6 +209,11 @@ std::string LlmEngine::reply(const std::string & user_text, int max_tokens,
     if (!prefix.empty() && !on_piece(prefix)) { stats.cancelled = true; }
     const double t0 = now_ms();
     for (int i = 0; i < max_tokens && !stats.cancelled; ++i) {
+        // Voice first (see hold()); bounded so a missed release can never stall a reply.
+        for (const double h0 = now_ms(); hold_.load() && !cancel_.load();) {
+            if (now_ms() - h0 >= 1500) { hold_.store(false); break; } // the hold expires, not just this wait
+            std::this_thread::sleep_for(std::chrono::milliseconds(3));
+        }
         if (cancel_.load()) { stats.cancelled = true; break; }
         if ((int) kv_tokens_.size() >= n_ctx_) break;
 

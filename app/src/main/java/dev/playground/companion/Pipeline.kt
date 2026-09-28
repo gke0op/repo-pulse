@@ -71,7 +71,7 @@ class Pipeline(
     var loadReport = ""; private set
 
     private sealed class TtsJob(val turn: Int) {
-        class Speak(turn: Int, val text: String, val trace: TurnTrace, val emotion: Emotion?) : TtsJob(turn)
+        class Speak(turn: Int, val text: String, val trace: TurnTrace, val emotion: Emotion?, val first: Boolean = false) : TtsJob(turn)
         class End(turn: Int, val trace: TurnTrace) : TtsJob(turn)
     }
 
@@ -312,8 +312,11 @@ class Pipeline(
             val tags = EmotionTagStream()
             var feeling: Emotion? = null
             fun emit(chunk: String) {
-                if (trace.firstChunkAt == 0L) { trace.firstChunkAt = now(); trace.firstChunkText = chunk }
-                ttsQueue.put(TtsJob.Speak(turn, chunk, trace, feeling))
+                val first = trace.firstChunkAt == 0L
+                if (first) { trace.firstChunkAt = now(); trace.firstChunkText = chunk }
+                // Voice first: the brain waits while the first chunk synthesizes (released in ttsLoop).
+                if (first && VOICE_FIRST) { trace.voiceFirst = true; NativeLlm.hold(true) }
+                ttsQueue.put(TtsJob.Speak(turn, chunk, trace, feeling, first))
             }
             fun spoken(text: String) {
                 if (turn == currentTurn) replySoFar.append(text)
@@ -433,6 +436,7 @@ class Pipeline(
         activeTurn = 0
         currentTurn++
         NativeLlm.cancel()
+        NativeLlm.hold(false)
         ttsQueue.clear()
         holdGate.countDown()
         if (::audio.isInitialized) audio.flush()
@@ -444,7 +448,7 @@ class Pipeline(
             val job = ttsQueue.take()
             if (job.turn != currentTurn) continue
             when (job) {
-                is TtsJob.Speak -> {
+                is TtsJob.Speak -> try {
                     val text = SpeechText.clean(job.text)
                     if (!SpeechText.speakable(text)) continue
                     val t0 = now()
@@ -454,6 +458,7 @@ class Pipeline(
                         var samples = v.synth(text, v.engine.speakerFor(character.id), character.speed)
                         robot?.let { samples = it.apply(samples) }
                         val synthMs = now() - t0
+                        if (job.first && VOICE_FIRST) NativeLlm.hold(false)
                         val audioMs = samples.size * 1000L / v.sampleRate
                         job.trace.chunks += TurnTrace.Chunk(text.length, synthMs, audioMs)
                         if (job.turn != currentTurn) return@synchronized
@@ -469,6 +474,8 @@ class Pipeline(
                             }
                         })
                     }
+                } finally {
+                    if (job.first && VOICE_FIRST) NativeLlm.hold(false) // every path, incl. unspeakable/dropped chunks
                 }
                 is TtsJob.End -> synchronized(voiceLock) { audio }.marker {
                     if (activeTurn == job.turn) { activeTurn = 0; speakingEndedAt = now() }
@@ -504,6 +511,12 @@ class Pipeline(
         /** After she stops, mic text matching her words is still treated as echo for this long. */
         const val ECHO_WINDOW_MS = 3000L // echo tail + 0.8 s end-of-turn wait + decode
         const val ENVELOPE_FRAME_MS = 20
+        /**
+         * A/B "voice first": pause generation while the first chunk synthesizes. Mac M3: Supertonic
+         * synth 330 ms alone vs 1,136 ms beside 4-thread Gemma generation; the phone's first-chunk
+         * synth is ~1.2 s. Off in build A, on in build B (branch ab/voice-first).
+         */
+        const val VOICE_FIRST = false
         const val DISTILL_SYSTEM = "You write memory notes. Follow the format exactly."
 
     }
@@ -531,6 +544,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
     @Volatile var memAfter: MemProbe.Snapshot? = null
     @Volatile var heat = ""
     /** FTT: started at a short pause, before your end of turn; [committedAt] when that end came. */
+    @Volatile var voiceFirst = false
     @Volatile var early = false
     @Volatile var committed = false
     @Volatile var committedAt = 0L
@@ -562,7 +576,7 @@ class TurnTrace(val turn: Int, val who: String, val t0: Long) {
         val first = chunks.firstOrNull()
         appendLine("  TTS         : ${chunks.size} chunks, synth ${synth} ms for ${audio} ms audio" +
             (if (audio > 0) " (RTF ${"%.2f".format(synth.toDouble() / audio)})" else "") +
-            (if (first != null) ", first chunk synth ${first.synthMs} ms" else ""))
+            (if (first != null) ", first chunk synth ${first.synthMs} ms" else "") + (if (voiceFirst) " [voice first]" else ""))
         appendLine("  total       : ${rel(doneAt)}")
         if (emotions.isNotEmpty()) appendLine("  feeling     : ${emotions.joinToString(" -> ") { it.tag }}")
         val a = memAfter

@@ -49,6 +49,10 @@ public:
 
     void cancel() { cancel_.store(true); }
 
+    // Voice first: while true, generation waits between tokens (up to MAX_HOLD_MS per hold), so
+    // the first speech chunk synthesizes without competing for the CPU. cancel() still wins.
+    void hold(bool on) { hold_.store(on); }
+
     // Forget the last reply if nobody heard it (cancelled before any audio played). The user
     // message stays, so the next one joins it. No-op if the last reply() stored nothing.
     void retract_last_reply();
@@ -77,5 +81,6 @@ private:
     std::vector<common_chat_msg> msgs_;      // msgs_[0] is the system message
     std::vector<llama_token>     kv_tokens_; // exactly what is in the KV cache, in order
     std::atomic<bool>            cancel_{false};
+    std::atomic<bool>            hold_{false};
     bool                         last_reply_stored_ = false;
 };

@@ -89,6 +89,9 @@ Java_dev_playground_companion_engine_NativeLlm_completeIsolated(JNIEnv * env, jo
 }
 
 JNIEXPORT void JNICALL
+Java_dev_playground_companion_engine_NativeLlm_hold(JNIEnv *, jobject, jboolean on) { g_engine.hold(on == JNI_TRUE); }
+
+JNIEXPORT void JNICALL
 Java_dev_playground_companion_engine_NativeLlm_retractLastReply(JNIEnv *, jobject) { g_engine.retract_last_reply(); }
 
 JNIEXPORT void JNICALL

@@ -1,6 +1,8 @@
 // Runs a scripted conversation through LlmEngine and prints streamed pieces + stats.
 #include <cstdio>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #include "llm_engine.h"
 
@@ -77,6 +79,20 @@ int main(int argc, char ** argv) {
         chat.retract_last_reply();
         auto r = chat.reply("on a companion app with a machine character.", 96, [](const std::string &) { return true; }, s4, "[");
         std::printf("split turn, retracted + joined: prefill %d tok -> %s\n", s4.prompt_tokens, r.c_str());
+    }
+
+    // Voice first: a hold from another thread pauses generation between tokens; release resumes it,
+    // and a hold that is never released gives up after 1.5 s.
+    {
+        LlmTurnStats a, b, c; int k = 0;
+        chat.reply("Tell me about rain in three sentences.", 60, [](const std::string &) { return true; }, a, "[");
+        chat.reply("And about snow, three sentences.", 60, [&](const std::string &) {
+            if (++k == 3) { chat.hold(true); std::thread([&] { std::this_thread::sleep_for(std::chrono::milliseconds(800)); chat.hold(false); }).detach(); }
+            return true; }, b, "[");
+        int j = 0;
+        chat.reply("And fog?", 60, [&](const std::string &) { if (++j == 3) chat.hold(true); return true; }, c, "["); // never released
+        std::printf("hold: free %.0f ms/%d tok | 800 ms hold %.0f ms/%d tok | stuck hold %.0f ms/%d tok\n",
+                    a.gen_ms, a.gen_tokens, b.gen_ms, b.gen_tokens, c.gen_ms, c.gen_tokens);
     }
     llama_backend_free();
     return 0;

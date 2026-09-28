@@ -26,6 +26,8 @@ object NativeLlm {
     external fun cancel()
     /** Forget the last reply (nobody heard it); the next user message joins the unanswered one. */
     external fun retractLastReply()
+    /** Voice first: pause generation between tokens (bounded to 1.5 s) so the first chunk synthesizes alone. */
+    external fun hold(on: Boolean)
     /** One-off completion in a scratch context; the conversation is untouched. "" if cancelled. */
     external fun completeIsolated(system: String, user: String, maxTokens: Int, nCtx: Int): String
     external fun unload()
