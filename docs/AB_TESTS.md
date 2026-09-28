@@ -52,6 +52,12 @@ Say what you *heard*, too: numbers decide speed, your ears decide naturalness.
 
 ## Next candidates (not built yet)
 
-- **Hot-phone gaps** are the bigger problem (above). Ideas to A/B once measured: when the governor
+- **Hot-phone gaps** are the bigger problem (above). Where they come from (75 hot turns): not the
+  brain (it finished ~8.6 s before her audio would have ended in 74/75), but the voice: replies run
+  long when hot (median 6 chunks, 19 s audio), and a 2-word first chunk plays ~1 s while the next whole
+  sentence needs ~3 s to synthesize. `SentenceChunker(rampChunks = n)` (off by default) lets chunks
+  2..n+1 break at a clause too. `ChunkingSimTest` (set CHUNK_SIM_LOGS to a logs dir) replays real
+  replies: it reproduces first audio (3.28 s sim vs 3.43 s phone) but not silence (1.5 s vs 0.43 s),
+  so its "ramp barely helps" is not evidence yet. Read the new `gaps` lines first. Ideas to A/B once measured: when the governor
   is `hot`, wait for a whole first sentence instead of a 2-word first chunk (later start, no stall
   after it); ask for shorter replies when hot; or lower `MAX_REPLY_TOKENS` when hot.

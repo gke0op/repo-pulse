@@ -11,6 +11,13 @@ class SentenceChunker(
     private val firstClauseMinWords: Int = 4,
     private val longChunkChars: Int = 140,
     private val firstChunkMaxWords: Int = 7,
+    /**
+     * Ramp: chunks 2..(1 + rampChunks) may also break at a clause once they have [rampMinWords].
+     * A tiny first chunk ("Oh, wow!") plays ~1 s while a whole next sentence synthesizes; on a hot
+     * phone that sentence takes longer than the first chunk plays, and she stalls.
+     */
+    private val rampChunks: Int = 0,
+    private val rampMinWords: Int = 5,
 ) {
     private val buf = StringBuilder()
     private var emitted = 0
@@ -53,6 +60,7 @@ class SentenceChunker(
             clauseCuts.firstOrNull { wordCount(buf.substring(0, it)) >= firstClauseMinWords }?.let { return it }
             return conjunctionCut()
         }
+        if (emitted <= rampChunks) clauseCuts.firstOrNull { wordCount(buf.substring(0, it)) >= rampMinWords }?.let { return it }
         if (buf.length >= longChunkChars) return clauseCuts.lastOrNull()
         return null
     }
