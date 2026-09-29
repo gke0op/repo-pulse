@@ -105,14 +105,16 @@ export class HairLibrary {
     }
     this.ok = this.parts.size > 0;
     this.look = {};
+    globalThis.__hair = this;                             // debug/tuning handle
   }
 
   // look: { bangs: 'D', sides: 'D', back: 'G', extras: null, accessory: 'D' }  (missing part = hidden)
   setLook(look) {
     if (!this.ok) return;
+    if (Object.keys(look).length) this.capHidden = false;
     this.look = { ...look };
     for (const p of this.parts.values()) {
-      const on = look[p.part] === p.style;
+      const on = p.style === 'base' ? !this.capHidden : look[p.part] === p.style;   // the scalp cap, unless bald
       p.objects.forEach(o => { o.visible = on; });
       for (const j of p.joints) {
         const has = this.sbm.joints.has(j);
@@ -122,8 +124,17 @@ export class HairLibrary {
     }
   }
 
+  // Bald: no hair parts and no scalp cap (the head's own skin shows).
+  setBald() { this.capHidden = true; this.setLook({}); }
+
+  // Buzz cut: no hair parts, just the scalp cap (it keeps a natural hairline); colour it with setColor('cap', ...).
+  setBuzz() { this.capHidden = false; this.setLook({}); }
+
   // A whole style on every part it has.
   setStyle(style) {
+    if (style === 'bald') return this.setBald();
+    if (style === 'buzz') return this.setBuzz();
+    this.capHidden = false;
     const look = {};
     for (const p of this.parts.values()) if (p.style === style) look[p.part] = style;
     this.setLook(look);

@@ -208,6 +208,22 @@ for tag, path in donors:
         bpy.context.view_layer.objects.active = d_hair[0]; bpy.ops.object.join()
     label_chains(split(d_hair[0], tag), tag, groups)
 
+# ---- the scalp cap (body's HairBack material) becomes its own always-present part "HairPart_base_cap",
+#      so the app can recolour it (e.g. skin tone for bald) independently of the body
+body = next((o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith('Body') and o.parent == arm), None)
+if body:
+    capi = {i for i, m in enumerate(body.data.materials) if m and 'HairBack' in m.name}
+    if capi:
+        cap = body.copy(); cap.data = body.data.copy(); bpy.context.scene.collection.objects.link(cap)
+        cap.name = 'HairPart_base_cap'; cap.data.name = cap.name
+        for i, m in enumerate(cap.data.materials):
+            if i in capi: mc = m.copy(); mc.name = 'Hair_base_cap'; cap.data.materials[i] = mc
+        for ob, keep in ((cap, True), (body, False)):
+            b2 = bmesh.new(); b2.from_mesh(ob.data); b2.faces.ensure_lookup_table()
+            bmesh.ops.delete(b2, geom=[f for f in b2.faces if (f.material_index in capi) != keep], context='FACES')
+            b2.to_mesh(ob.data); b2.free()
+        log('cap split', sum(len(p.vertices) - 2 for p in cap.data.polygons), 'tris')
+
 # ---- default look: the character's own hair visible, everything else hidden (the app decides at runtime)
 # (VRM has no per-mesh visibility; the app hides parts by name. Keep all visible in the file.)
 # ---- textures: cap at TEX_MAX for the phone
