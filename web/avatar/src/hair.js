@@ -5,6 +5,12 @@ import * as THREE from 'three';
 
 export const HAIR_PARTS = ['bangs', 'sides', 'back', 'extras', 'accessory'];
 
+// Curated looks (setHair('<name>')): combinations the user picked.
+export const HAIR_PRESETS = {
+  boy: { long: { look: { bangs: 'M', sides: 'L', back: 'L' }, color: { '*': '#1f1b26' } } },
+  girl: {},
+};
+
 const GLSL_V = /* glsl */`
 varying float vHairH;
 `;
@@ -74,8 +80,8 @@ function meanLum(mats) {
 }
 
 export class HairLibrary {
-  constructor(vrm) {
-    this.vrm = vrm;
+  constructor(vrm, charId) {
+    this.vrm = vrm; this.charId = charId;
     this.parts = new Map();                              // 'D:bangs' -> { style, part, objects, joints, u }
     vrm.scene.traverse(o => {
       const m = /^HairPart_([A-Za-z0-9]+)_([a-z]+)$/.exec(o.name);
@@ -132,6 +138,8 @@ export class HairLibrary {
 
   // A whole style on every part it has.
   setStyle(style) {
+    const pre = HAIR_PRESETS[this.charId]?.[style];
+    if (pre) { this.setLook(pre.look); for (const [part, c] of Object.entries(pre.color || {})) this.setColor(part, c); return; }
     if (style === 'bald') return this.setBald();
     if (style === 'buzz') return this.setBuzz();
     this.capHidden = false;

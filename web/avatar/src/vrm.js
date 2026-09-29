@@ -78,7 +78,7 @@ export class VrmAvatar {
       if (em.getExpression(n)) this.x[n] = n;
     this.x.surprised = em.getExpression('surprised') ? 'surprised' : em.getExpression('Surprised') ? 'Surprised' : null;
     this.eye = new ProceduralEye(vrm, this.id);   // models with an eye rig get the procedural eye
-    this.hair = new HairLibrary(vrm);              // models with a hair library: own style by default
+    this.hair = new HairLibrary(vrm, this.id);              // models with a hair library: own style by default
     if (this.hair.ok) this.hair.setStyle('O');
     for (const [fn, args] of this.pendingHair || []) this[fn](...args);
 
