@@ -152,7 +152,7 @@ Things that will bite you if you don't know them:
 - "remembered: …" lines reach the session log only when the app comes back. Look for
   "N exchanges in s", "ready for next time (s)" and "paused (…s into a chunk)".
 - The avatar bundle `app/src/main/assets/avatar/avatar.js` is committed: run `npm run build`
-  after any JS change, then `npm run shoot` (**51 shots now**, must exit 0).
+  after any JS change, then `npm run shoot` (**63 shots now**, must exit 0).
 
 ## 3. What the person told me (keep these)
 

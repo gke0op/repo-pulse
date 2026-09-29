@@ -1,7 +1,7 @@
 // Avatar stage: renders the current character and exposes window.avatar for the app.
 //
 // API (called from Kotlin via evaluateJavascript):
-//   avatar.setCharacter('girl' | 'boy' | 'machine')
+//   avatar.setCharacter('girl' | 'boy' | 'machine' | 'orb')   // 'orb': the onboarding's own being
 //   avatar.setState('idle' | 'listening' | 'thinking' | 'speaking')
 //   avatar.speak(envelope: number[0..1], frameMs, delayMs)   // lip-sync for one audio chunk
 //   avatar.stopSpeaking()
@@ -10,6 +10,12 @@
 //   avatar.setProfile('A' | 'B')                            // emotion intensity A/B (humans)
 //   avatar.setLook('human' | 'orb')                         // Mira and Kai as VRM humans or plasma orbs
 //   avatar.setAwake(0..1)                                   // waking up while the app loads (0 = asleep)
+//   avatar.setFill(0..1, strength)                          // progress as the orb filling with light (< 0: off)
+//   avatar.hear(0..1)                                       // your voice's loudness right now (the orb pulses with it)
+//   avatar.setPalette('orb' | 'girl' | 'boy' | 'machine')   // the orb takes on a character's colours
+//   avatar.joy()                                            // a happy moment (the orb hops, as for a tap)
+//   avatar.setTune(0..1)                                    // finding its voice: small and high .. big and deep (< 0: off)
+//   avatar.where()                                          // {x, y, r}: the character on screen, in CSS px
 //   avatar.pause() / avatar.resume()
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
@@ -77,6 +83,7 @@ const KEYS = ['ripple', 'lean', 'unrest', 'swirl', 'eyeLock', 'dilate', 'pulse',
 const s = {
   t: 0, breath: 1, speech: 0, mouth: 0, glitch: 0, nod: 0, tilt: 0,
   awake: 1,       // 0 asleep .. 1 awake; characters may read it (e.g. close their eyes while asleep)
+  hear: 0,        // your voice's loudness, smoothed (0..1)
   focus: new THREE.Vector3(0, 0.1, 7), glowColor: new THREE.Color(0x7fffe0),
   profile: 'A',   // emotion intensity profile for the humans (A/B test), see vrm.js
 };
@@ -108,7 +115,11 @@ function setEmotion(name) {
   const next = EMOTIONS[name];
   if (!next || name === emoName) return;
   emoName = name;
+  s.emoName = name;
   emoTarget = next;
+  // A drift back to calm already pending (a reply just ended) must not cut a new feeling short: it
+  // gets its full while. Without one (the app's feeling buttons), a feeling stays, as before.
+  if (stateName === 'idle' && calmAt) calmAt = performance.now() + 6000;
   emoGlow.set(next.glow);
   emoVein.set(next.vein);
   if (name === 'surprised') { character?.blinkCascade(); s.breath = 1.05; }
@@ -118,11 +129,13 @@ function applyState(name) {
   KEYS.forEach((k, i) => { target[k] = row[i]; if (s[k] === undefined) s[k] = row[i]; });
   target.glow = new THREE.Color(row[8]);
   stateName = name;
+  s.state = name;
 }
 applyState('idle');
 
 let character = null;
 let charId = null;
+let hearIn = 0, hearAt = -1e9;   // the latest voice level from the app, and when it came
 // Mira and Kai can be VRM humans or plasma orbs (the orb is a keeper, not just a placeholder).
 let look = params.get('orb') ? 'orb' : 'human';
 function setCharacter(id, force = false) {
@@ -130,13 +143,13 @@ function setCharacter(id, force = false) {
   character?.dispose();
   charId = id;
   character = id === 'machine' ? new Shoggoth(scene)
-    : look === 'orb' ? new Orb(scene, id) : new VrmAvatar(scene, id);
+    : id === 'orb' || look === 'orb' ? new Orb(scene, id) : new VrmAvatar(scene, id);
 }
 function setLook(l) {
   const next = l === 'orb' ? 'orb' : 'human';
   if (next === look) return;
   look = next;
-  if (charId && charId !== 'machine') setCharacter(charId, true);
+  if (charId && charId !== 'machine' && charId !== 'orb') setCharacter(charId, true);
 }
 
 // ---- waking up ---------------------------------------------------------------------
@@ -180,27 +193,37 @@ function envelopeNow(now) {
 // ---- touch: every eye follows your finger; a tap startles it -----------------------
 const ray = new THREE.Raycaster();
 const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -3);
+const ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);   // the characters' own plane
+s.finger = new THREE.Vector3();   // your finger on the characters' plane (the orb comes to it)
 let touchUntil = 0, touchPoint = new THREE.Vector3(), downAt = 0;
 function pointerToFocus(ev) {
   const r = renderer.domElement.getBoundingClientRect();
   const ndc = new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   ray.ray.intersectPlane(plane, touchPoint);
+  ray.ray.intersectPlane(ground, s.finger);
   touchUntil = performance.now() + 1500;
 }
 renderer.domElement.addEventListener('pointerdown', ev => { downAt = performance.now(); pointerToFocus(ev); });
 renderer.domElement.addEventListener('pointermove', ev => { if (ev.buttons || ev.pointerType === 'touch') pointerToFocus(ev); });
-renderer.domElement.addEventListener('pointerup', () => { if (performance.now() - downAt < 250) flinch(0.5); });
+// A tap: the orb takes it as a hello (a happy hop); the others are startled.
+renderer.domElement.addEventListener('pointerup', () => {
+  if (performance.now() - downAt < 250) character?.tap ? character.tap() : flinch(0.5);
+});
 
 function flinch(strength = 1) {
   s.glitch = Math.max(s.glitch, strength);
   s.breath = 0.93;
   character?.blinkCascade();
+  character?.poke?.(strength);
 }
 
 // ---- loop ---------------------------------------------------------------------------
+// The playground (and ?frame=1) shows the phone's 9:16 frame, centered.
+const PLAY = !!params.get('play'), FRAME = PLAY || !!params.get('frame');
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const h = window.innerHeight, w = FRAME ? Math.min(window.innerWidth, Math.round(h * 9 / 16)) : window.innerWidth;
+  if (FRAME) renderer.domElement.style.margin = '0 auto';
   renderer.setSize(w, h, false);
   renderer.domElement.style.width = w + 'px';
   renderer.domElement.style.height = h + 'px';
@@ -210,6 +233,11 @@ function resize() {
   camera.position.z = Math.max(4.9 / 2 / half, 3.6 / 2 / (half * camera.aspect));
   camera.lookAt(0, -0.15, 0);
   camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  // The visible stage on the characters' plane, so the orb can use all of it (edges, corners).
+  const corner = (x, y) => { ray.setFromCamera(new THREE.Vector2(x, y), camera); return ray.ray.intersectPlane(ground, new THREE.Vector3()); };
+  const lo = corner(-1, -1), hi = corner(1, 1);
+  s.view = { x0: lo.x, x1: hi.x, y0: lo.y, y1: hi.y };
 }
 window.addEventListener('resize', resize);
 resize();
@@ -217,9 +245,13 @@ resize();
 const timer = new THREE.Timer();
 let running = true;
 // Thermal governor (set from the app): fewer frames and pixels when the phone runs hot.
-// Idle is capped at 30 fps regardless: breathing doesn't need 60 (or the panel's 120).
-let maxFps = 60, lastRenderAt = 0;
-function frameBudgetMs() { return 1000 / (stateName === 'idle' ? Math.min(maxFps, 30) : maxFps); }
+// The heavy bodies (Seven, the humans) stay at 60 at most, and 30 while idle: their breathing doesn't
+// need more. The orb is light to draw and lives by its motion, so it runs at the panel's rate (120).
+let maxFps = 120, lastRenderAt = 0, frames = 0, fpsNow = 0, fpsSince = 0;
+function frameBudgetMs() {
+  const cap = Math.min(maxFps, character?.maxFps ?? 60);
+  return 1000 / (stateName === 'idle' && !character?.maxFps ? Math.min(cap, 30) : cap);
+}
 const timeOffset = parseFloat(params.get('t') || '0');
 function frame() {
   if (!running) return;
@@ -227,6 +259,8 @@ function frame() {
   const t0 = performance.now();
   if (t0 - lastRenderAt < frameBudgetMs() - 2) return; // -2 ms: vsync jitter must not halve the rate
   lastRenderAt = t0;
+  frames++;
+  if (t0 - fpsSince >= 1000) { fpsNow = Math.round(frames * 1000 / (t0 - fpsSince)); frames = 0; fpsSince = t0; }
   timer.update();
   const dt = Math.min(timer.getDelta(), 0.05);
   const now = performance.now();
@@ -247,6 +281,8 @@ function frame() {
   s.speech += (e - s.speech) * (1 - Math.exp(-dt * 8));
   s.pulse = Math.max(s.pulse, s.speech * 0.9);
   s.awake += (wakeTarget - s.awake) * (1 - Math.exp(-dt * 1.5));
+  const heard = now - hearAt < 250 ? hearIn : 0;
+  s.hear += (heard - s.hear) * (1 - Math.exp(-dt * (heard > s.hear ? 25 : 5)));
   const asleep = 1 - s.awake;
   sleepVeil.material.opacity = 0.82 * Math.pow(asleep, 1.2);
   s.breath += (1 + 0.015 * (1 + 1.5 * asleep) * Math.sin(s.t * 0.9 * (1 - 0.55 * asleep)) - s.breath) * (1 - Math.exp(-dt * 4));
@@ -255,7 +291,8 @@ function frame() {
   s.tilt = stateName === 'thinking' ? Math.sin(s.t * 0.7) * 0.08 : s.tilt * 0.95;
 
   // Focus: your finger if touching, else you (the camera), in the character's space.
-  const focusWorld = now < touchUntil ? touchPoint : camera.position;
+  s.touch = now < touchUntil ? 1 : 0;
+  const focusWorld = s.touch ? touchPoint : camera.position;
   s.focus.copy(focusWorld);
   if (character?.group) character.group.worldToLocal(s.focus);
   // Asleep, the eyes don't seek you out; a touch still gets their attention.
@@ -286,6 +323,21 @@ window.avatar = {
   setProfile(p) { s.profile = p === 'B' ? 'B' : 'A'; },
   setLook,
   setAwake,
+  setFill(level, strength = 1) { character?.setFill?.(level, strength); },
+  hear(level) { hearIn = Math.max(0, Math.min(1, Number(level) || 0)); hearAt = performance.now(); },
+  setPalette(id) { character?.setPalette?.(id); },
+  setTune(u) { character?.setTune?.(Number(u)); },
+  joy() { character?.tap ? character.tap() : character?.blinkCascade(); },
+  where() {
+    const g = character?.group;
+    if (!g) return null;
+    const r = renderer.domElement.getBoundingClientRect();
+    const px = v => { v.project(camera); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; };
+    const c = g.getWorldPosition(new THREE.Vector3()), e = c.clone();
+    e.x += 0.8 * g.scale.x;
+    const [x, y] = px(c), [ex] = px(e);
+    return { x, y, r: Math.abs(ex - x) };
+  },
   isLoaded: () => character?.vrm !== null,
   debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
@@ -303,5 +355,41 @@ if (params.get('state')) window.avatar.setState(params.get('state'));
 if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
 if (params.get('profile')) window.avatar.setProfile(params.get('profile'));
 if (params.get('awake')) { setAwake(0); setAwake(parseFloat(params.get('awake'))); }
+// Playground (?play=1, desktop browser): feel a character without the phone. Keys: 1-7 feelings,
+// i/l/t idle/listening/thinking, space a spoken line, f flinch, z sleep, w wake by steps,
+// [ ] the orb's soft skin (shown top left; below 0 its size stops bouncing too).
+if (params.get('play')) {
+  const tag = document.body.appendChild(document.createElement('div'));
+  tag.style.cssText = 'position:fixed;top:8px;left:8px;color:#8a88a8;font:12px -apple-system,sans-serif';
+  const showSkin = () => {
+    const k = s.skin ?? 0.025;
+    tag.textContent = `skin ${(k * 100).toFixed(1)}%${k < 0 ? ` (firm ${Math.round(-k / 0.05 * 100)}%)` : ''}  ( [ ] )`;
+  };
+  showSkin();
+  setInterval(() => { tag.textContent = tag.textContent.replace(/ · \d+ fps$/, '') + ` · ${fpsNow} fps`; }, 500);
+  const feel = ['calm', 'happy', 'sad', 'angry', 'surprised', 'curious', 'tender'];
+  const states = { i: 'idle', l: 'listening', t: 'thinking' };
+  window.addEventListener('keydown', ev => {
+    const a = window.avatar;
+    if (feel[ev.key - 1]) a.setEmotion(feel[ev.key - 1]);
+    else if (states[ev.key]) a.setState(states[ev.key]);
+    else if (ev.key === ' ') {   // a made-up sentence: syllables in words, with pauses between them
+      const e = [];
+      for (let w = 0; w < 7; w++) {
+        for (let k = 0, n = 1 + Math.floor(Math.random() * 3); k < n; k++)
+          for (let i = 0; i < 9; i++) e.push((0.3 + 0.6 * Math.random()) * Math.sin(Math.PI * i / 9));
+        for (let i = 0; i < 4; i++) e.push(0);
+      }
+      a.speak(e, 20, 0);
+      setTimeout(() => a.setState('idle'), e.length * 20);
+    } else if (ev.key === 'f') a.flinch();
+    else if (ev.key === 'z') a.setAwake(0);
+    else if (ev.key === 'w') a.setAwake(Math.min(1, s.awake + 0.35));
+    else if (ev.key === '[' || ev.key === ']') {
+      s.skin = Math.min(0.1, Math.max(-0.05, (s.skin ?? 0.025) + (ev.key === ']' ? 0.005 : -0.005)));
+      showSkin();
+    }
+  });
+}
 frame();
 window.AndroidAvatar?.onReady();

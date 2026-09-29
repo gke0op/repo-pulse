@@ -15,7 +15,7 @@ import android.os.PowerManager
  * hysteresis so it doesn't flap. Main thread only.
  */
 class ThermalGovernor(ctx: Context, private val onLevel: (Level) -> Unit) {
-    enum class Level(val fps: Int, val pixelRatio: Float) { COOL(60, 2f), WARM(30, 1.5f), HOT(24, 1.25f) }
+    enum class Level(val fps: Int, val pixelRatio: Float) { COOL(120, 2f), WARM(30, 1.5f), HOT(24, 1.25f) }
 
     private val power = ctx.getSystemService(PowerManager::class.java)
     private val handler = Handler(Looper.getMainLooper())

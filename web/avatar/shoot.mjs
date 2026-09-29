@@ -46,6 +46,9 @@ const shots = [
     // The plasma orb look is a keeper: keep it rendering.
     [c, 'listening', null, null, null, 'orb'], [c, 'speaking', 'speak', 'tender', null, 'orb'],
   ]),
+  // The orb itself, the onboarding's first character: its states and all its feelings.
+  ...['idle', 'listening', 'thinking'].map(st => ['orb', st, null]), ['orb', 'speaking', 'speak'],
+  ...['happy', 'sad', 'angry', 'surprised', 'curious', 'tender'].map(e => ['orb', 'idle', null, e]),
 ];
 for (const [char, state, action, emo, profile, look] of shots) {
   await page.goto(`${page_url}?char=${char}&state=${state}&t=7${emo ? `&emo=${emo}` : ''}${profile ? `&profile=${profile}` : ''}${look === 'orb' ? '&orb=1' : ''}`);
@@ -60,7 +63,7 @@ for (const [char, state, action, emo, profile, look] of shots) {
   console.log('shot', file);
 }
 // Waking up (the app's launch): asleep, half awake. The veil and slow breath must render.
-for (const [char, awake] of [['machine', 0], ['machine', 0.5], ['girl', 0]]) {
+for (const [char, awake] of [['machine', 0], ['machine', 0.5], ['girl', 0], ['orb', 0]]) {
   await page.goto(`${page_url}?char=${char}&t=7&awake=${awake}`);
   await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });
   await page.waitForTimeout(1500);
@@ -79,6 +82,19 @@ for (const look of ['orb', 'human']) {
   await page.screenshot({ path: file });
   console.log('shot', file);
 }
+// A finger held down low on the left: the orb comes to hover just above it, looking at it.
+await page.goto(`${page_url}?char=orb&t=7`);
+await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });
+await page.waitForTimeout(1000);
+await page.mouse.move(90, 380);
+await page.mouse.down();
+for (let i = 0; i < 8; i++) { await page.mouse.move(90 + i, 380); await page.waitForTimeout(120); }
+{
+  const file = path.join(out, 'avatar-orb-touch.png');
+  await page.screenshot({ path: file });
+  console.log('shot', file);
+}
+await page.mouse.up();
 const fps = await page.evaluate(() => new Promise(res => {
   let n = 0; const t0 = performance.now();
   (function tick() { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else res(n / 2); })();
