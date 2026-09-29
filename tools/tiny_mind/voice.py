@@ -1,7 +1,7 @@
 # Teach the base model the orb's voice: fine-tune on the checked DeepSeek lines (data/orb_lines.jsonl),
 # loss only on the orb's reply (feeling tag, sentence, tool token, end), with base text replayed so
 # English isn't forgotten. Prints held-out loss per epoch and sample replies for a fixed set of moments.
-import argparse, json, random, numpy as np, torch, torch.nn.functional as F, sentencepiece as spm
+import argparse, json, random, re, numpy as np, torch, torch.nn.functional as F, sentencepiece as spm
 from model import build
 
 ap = argparse.ArgumentParser()
@@ -14,11 +14,16 @@ torch.manual_seed(0); torch.set_num_threads(a.threads); random.seed(0)
 sp = spm.SentencePieceProcessor(model_file='data/orb.model')
 ORB = sp.piece_to_id('<|orb|>')
 
-def prompt(moment, user, pct):  # must match prepare.orb_row
-    return f"<|state|> little self, big brain {pct}%, {moment}" + (f"<|user|> {user}" if user else '') + '<|orb|>'
+def prompt(moment, user, pct):  # the text the app sends: no spaces after the markers
+    return f"<|state|>little self, big brain {pct}%, {moment}" + (f"<|user|>{user}" if user else '') + '<|orb|>'
+def encode(text):  # exactly llama.cpp's SentencePiece rule: markers whole, each text piece gets its own ▁
+    ids = [1]
+    for part in re.split(r'(<\|[a-z]+\|>|<become:[a-z]+>|<confirm:seven>|<replay>)', text):
+        if part: ids += [sp.piece_to_id(part)] if part.startswith('<') and sp.piece_to_id(part) != 0 else sp.encode(part)
+    return ids
 def example(r):
-    p = [1] + sp.encode(prompt(r['moment'], r['user'], random.randint(0, 99)))
-    reply = sp.encode(f" [{r['feeling']}] {r['orb']}" + (f" <{r['action']}>" if r['action'] else '')) + [2]
+    p = encode(prompt(r['moment'], r['user'], random.randint(0, 99)))
+    reply = encode(f"[{r['feeling']}] {r['orb']}" + (f"<{r['action']}>" if r['action'] else ''))[1:] + [2]
     return p + reply, len(p)
 
 rows = [json.loads(l) for l in open('data/orb_lines.jsonl')]
@@ -71,7 +76,7 @@ model.load_state_dict(torch.load(a.out))
 
 @torch.no_grad()
 def reply(moment, user, pct=40, temp=0.8, k=40, seed=0):
-    g = torch.Generator().manual_seed(seed); ids = [1] + sp.encode(prompt(moment, user, pct)); n0 = len(ids)
+    g = torch.Generator().manual_seed(seed); ids = encode(prompt(moment, user, pct)); n0 = len(ids)
     model.eval()
     for _ in range(40):
         with torch.autocast('cpu', dtype=torch.bfloat16):

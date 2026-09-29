@@ -26,7 +26,16 @@ curl -L -o td_valid.txt $H/styfeng/TinyDialogues/resolve/main/tinydialogue_val_o
 cd .. && python3 orb_lines.py lines/*.md                    # check DeepSeek batches -> data/orb_lines.jsonl
 python3 prepare.py                                          # 4k SentencePiece BPE + uint16 token files
 python3 -W ignore train.py hybrid19 --minutes 480 --resume  # the 8 h base run; --resume after any stop
+python3 -W ignore voice.py runs/hybrid19.pt                 # the orb's voice -> runs/voice.pt, prints sample replies
+pip install transformers llama.cpp/gguf-py                  # llama.cpp checkout with llama-simple, llama-tokenize built
+python3 export.py runs/voice.pt runs/export --llama llama.cpp   # -> runs/export/orb-hybrid19-f16.gguf (37 MB)
+python3 parity.py llama.cpp runs/export/orb-hybrid19-f16.gguf runs/voice.pt   # same ids, same greedy text
 ```
+
+The app's prompt is plain text with the markers (no spaces after them):
+`<|state|>little self, big brain 42%, chat<|user|>are you alive?<|orb|>` and the reply comes back as
+`[curious] alive enough to wonder about it.` plus an optional tool token, then end of text.
+llama.cpp tokenizes this exactly like training does (`voice.encode`; checked by `parity.py`).
 
 ## Measured (4-core Xeon with AMX, 16 GB, no GPU; 2026-09-29)
 
@@ -35,4 +44,6 @@ python3 -W ignore train.py hybrid19 --minutes 480 --resume  # the 8 h base run; 
   hybrid 4,818. The 20-min race: hybrid won (val 1.811 vs classic 1.839), see `RESEARCH.md`.
 - `hybrid19` (18.5M) on the mix: ~6,700 tok/s. Tokenizer: 4.05 chars/token on stories, 3.68 on SODA;
   `[`, feeling words and the role markers are single tokens.
+- GGUF export (llama.cpp `lfm2` arch, SentencePiece vocab with the markers as USER_DEFINED): greedy output
+  of the f16 GGUF matches PyTorch fp32 token for token on 3 prompts (2026-09-29, llama.cpp 6d78fb0).
 - First DeepSeek batch: 1,263 of 2,100 rows kept (745 exact duplicates: DeepSeek repeats after ~200 rows).
