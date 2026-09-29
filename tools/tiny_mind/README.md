@@ -30,6 +30,7 @@ python3 -W ignore voice.py runs/hybrid19.pt                 # the orb's voice ->
 pip install transformers llama.cpp/gguf-py                  # llama.cpp checkout with llama-simple, llama-tokenize built
 python3 export.py runs/voice.pt runs/export --llama llama.cpp   # -> runs/export/orb-hybrid19-f16.gguf (37 MB)
 python3 parity.py llama.cpp runs/export/orb-hybrid19-f16.gguf runs/voice.pt   # same ids, same greedy text
+python3 evaluate.py runs/voice.pt --n 5                     # tag / one sentence / right tool over 60 samples
 ```
 
 The app's prompt is plain text with the markers (no spaces after them):
@@ -46,4 +47,8 @@ llama.cpp tokenizes this exactly like training does (`voice.encode`; checked by 
   `[`, feeling words and the role markers are single tokens.
 - GGUF export (llama.cpp `lfm2` arch, SentencePiece vocab with the markers as USER_DEFINED): greedy output
   of the f16 GGUF matches PyTorch fp32 token for token on 3 prompts (2026-09-29, llama.cpp 6d78fb0).
+- Base run (2026-09-29): hybrid19, 8 h, 189M tokens, 6,561 tok/s; val loss stories 1.79, SODA 1.58,
+  dialogues 1.27. Voice on 1,200 lines: held-out 2.150 (best of 6 passes, pass 3). `evaluate.py`,
+  60 samples: feeling tag 60/60, one sentence 60/60, right tool 47/60 (become prompts only 7/20).
+  Details and the fixes: `notes/listen-2026-09-29.md`.
 - First DeepSeek batch: 1,263 of 2,100 rows kept (745 exact duplicates: DeepSeek repeats after ~200 rows).

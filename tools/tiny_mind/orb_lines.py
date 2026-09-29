@@ -6,7 +6,7 @@ FEELINGS = {'calm', 'happy', 'sad', 'angry', 'surprised', 'curious', 'tender'}
 ACTIONS = {'', 'become:mira', 'become:kai', 'confirm:seven', 'replay'}
 NEEDS_USER = {'chat', 'touch', 'idle', 'return', 'become'}
 BANNED = ['how can i help', 'as an ai', 'here to assist', 'great question', 'cosmic', 'stardust',
-          'universe', 'vibes', 'ethereal', 'journey', 'embrace', 'language model', '#']
+          'universe', 'vibes', 'ethereal', 'journey', 'embrace', 'language model', 'tiny model', '#']
 EMOJI = re.compile('[\U0001F300-\U0001FAFF☀-➿️]')
 SPLIT = re.compile(r'(?<=[.!?…])["”’)]*\s+(?=\S)')
 norm = lambda s: re.sub(r'[^a-z0-9 ]', '', s.lower()).split()
