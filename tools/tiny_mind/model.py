@@ -9,6 +9,8 @@ ARCHS = {
     'looped':    dict(D=512, H=8, KV=4, F=1536, layers=['attn'] * 4, loops=2),
     'deepthin':  dict(D=384, H=6, KV=3, F=1024, layers=['attn'] * 16),
     'hybrid':    dict(D=512, H=8, KV=4, F=1536, layers=['conv', 'conv', 'attn', 'conv', 'conv', 'attn', 'conv', 'attn']),
+    # race winner at ~19M (compute-optimal for ~8 h here); attention at 2,4,6,8 like LFM2.5-230M
+    'hybrid19':  dict(D=384, H=6, KV=2, F=1024, layers=['conv', 'conv', 'attn', 'conv', 'attn', 'conv', 'attn', 'conv', 'attn', 'conv']),
 }
 
 def rope_tables(T, hd, base=10000.0):
