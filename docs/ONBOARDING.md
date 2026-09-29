@@ -71,7 +71,8 @@ Each act in a line or two; the words are in `script.js`.
   silence; "here I go. don't look!"; the whole leitmotif while it goes dark, the character forms and
   wakes; 3 s of the character looking at you; then their first line, which remembers your name and
   what you told the orb. (The morph is the avatar seat's: for Mira and Kai the orb shrinks into the
-  heart of the body as it forms; for Seven it sinks behind the mask as the shoggoth rises.)
+  heart of the body as it forms; for Seven it sank behind the mask as the shoggoth rose, and Seven
+  is being redesigned as a machine: `docs/SEVEN_DESIGN_HANDOFF.md`.)
 
 **Every later launch (~6-8 s).** No spinner: the character is already there, asleep, dim and breathing
 slowly; it stirs as the voice loads, opens its eyes as the brain finishes, and greets you when it can
