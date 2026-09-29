@@ -90,7 +90,10 @@ export class Wardrobe {
       if (t.parametricRimColorFactor && m.parametricRimColorFactor) m.parametricRimColorFactor.copy(t.parametricRimColorFactor);
     }
     if (src.color && m.color) m.color.copy(src.color);
-    if (src.alphaTest) m.alphaTest = src.alphaTest;
+    // MToon copies alphaTest into its uniform only in update(), which three-vrm calls for the VRM's own materials:
+    // set the uniform here too, or every cutout in a pack's cloth draws as solid (dark) fabric
+    m.alphaTest = src.alphaTest || (src.map ? 0.5 : 0);
+    if (m.uniforms?.alphaTest) m.uniforms.alphaTest.value = m.alphaTest;
     if (src.emissiveMap) { m.emissiveMap = src.emissiveMap; m.emissive?.setRGB?.(1, 1, 1); }   // glowing trims keep their glow
     m.name = `${src.name}__dressed`;
     this.dressed.push(m);
