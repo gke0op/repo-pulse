@@ -6,7 +6,7 @@ Checks: triangles <= 40k, size <= 25 MB, textures <= 2048, every blend-shape bin
 morph target, required expressions present, humanoid + eye bones, lookAt, CC0 + commercial meta.
 Exit 1 if anything fails.
 """
-import json, os, struct, sys
+import json, os, re, struct, sys
 
 REQUIRED = ['a', 'i', 'u', 'e', 'o', 'blink', 'blink_l', 'blink_r', 'joy', 'angry', 'sorrow', 'fun', 'neutral']
 CUSTOM = ['Surprised']
@@ -50,6 +50,18 @@ def check(path):
             cnt = doc['accessors'][p['indices']]['count'] if 'indices' in p else doc['accessors'][p['attributes']['POSITION']]['count']
             tris += cnt // 3
     res['tris'] = tris
+    # hair library (meshes HairPart_<style>_<part>): budget = everything else + the largest single style
+    lib = {}
+    for m in doc['meshes']:
+        mm = re.match(r'HairPart_([A-Za-z0-9]+)_[a-z]+$', m.get('name', ''))
+        if mm:
+            t = sum((doc['accessors'][p['indices']]['count'] if 'indices' in p else doc['accessors'][p['attributes']['POSITION']]['count']) // 3
+                    for p in m['primitives'] if p.get('mode', 4) == 4)
+            lib[mm.group(1)] = lib.get(mm.group(1), 0) + t
+    if lib:
+        res['hair_styles'] = lib
+        tris = tris - sum(lib.values()) + max(lib.values())
+        res['tris_worst_look'] = tris
     sizes = []
     for im in doc.get('images', []):
         bv = doc['bufferViews'][im['bufferView']]

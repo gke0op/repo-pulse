@@ -247,6 +247,8 @@ window.avatar = {
   setEmotion,
   setProfile(p) { s.profile = p === 'B' ? 'B' : 'A'; },
   setLook,
+  setHair: x => character?.setHair?.(x),
+  setHairColor: (part, hex, amount) => character?.setHairColor?.(part, hex, amount),
   isLoaded: () => character?.vrm !== null,
   debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
@@ -257,5 +259,6 @@ setCharacter(params.get('char') || 'machine');
 if (params.get('state')) window.avatar.setState(params.get('state'));
 if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
 if (params.get('profile')) window.avatar.setProfile(params.get('profile'));
+if (params.get('hair')) window.avatar.setHair(params.get('hair').startsWith('{') ? JSON.parse(params.get('hair')) : params.get('hair'));
 frame();
 window.AndroidAvatar?.onReady();

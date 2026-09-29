@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { ProceduralEye } from './eye.js';
+import { HairLibrary } from './hair.js';
 
 const MODELS = { girl: 'models/mira.vrm', boy: 'models/kai.vrm' };
 // Emotion A/B (avatar.setProfile): A = subtle, capped where VRoid shapes start fighting
@@ -77,6 +78,9 @@ export class VrmAvatar {
       if (em.getExpression(n)) this.x[n] = n;
     this.x.surprised = em.getExpression('surprised') ? 'surprised' : em.getExpression('Surprised') ? 'Surprised' : null;
     this.eye = new ProceduralEye(vrm, this.id);   // models with an eye rig get the procedural eye
+    this.hair = new HairLibrary(vrm);              // models with a hair library: own style by default
+    if (this.hair.ok) this.hair.setStyle('O');
+    for (const [fn, args] of this.pendingHair || []) this[fn](...args);
 
     this.mtoon = [];
     vrm.scene.traverse(o => [].concat(o.material || []).forEach(m => { if (m.isMToonMaterial && !this.mtoon.includes(m)) this.mtoon.push(m); }));
@@ -189,6 +193,16 @@ export class VrmAvatar {
   }
 
   debug() { const em = this.vrm?.expressionManager; return em && Object.fromEntries(em.expressions.map(x => [x.expressionName, +x.weight.toFixed(2)]).filter(([, w]) => w > 0.01)); }
+
+  // Hair: a style id ('O' own, 'D', ...), or a look { bangs, sides, back, extras, accessory } of style ids.
+  setHair(x) {
+    if (!this.hair) { (this.pendingHair ||= []).push(['setHair', [x]]); return; }
+    if (typeof x === 'string') this.hair.setStyle(x); else this.hair.setLook(x);
+  }
+  setHairColor(part, hex, amount) {
+    if (!this.hair) { (this.pendingHair ||= []).push(['setHairColor', [part, hex, amount]]); return; }
+    this.hair.setColor(part, hex, amount);
+  }
 
   blinkCascade() { this.blinkQueue = 2; this.blinkAt = 0; }
 
