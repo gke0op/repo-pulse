@@ -72,6 +72,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         val saved = runCatching { VoiceEngine.valueOf(prefs.getString(PREF_VOICE, "")!!) }.getOrNull()
         val savedLlm = runCatching { LlmModel.valueOf(prefs.getString(PREF_LLM, "")!!) }.getOrNull()
         pipeline = Pipeline(applicationContext, store, this, saved ?: ModelStore.DEFAULT_VOICE, savedLlm ?: ModelStore.DEFAULT_LLM)
+        CHARACTERS.firstOrNull { it.id == prefs.getString(PREF_CHARACTER, "") }?.let(pipeline::restore)
         val root = buildUi()
         setContentView(root)
         // Target SDK 35 draws edge-to-edge: pad for the status/nav bars and the keyboard,
@@ -113,6 +114,8 @@ class MainActivity : Activity(), Pipeline.Listener {
         root.addView(avatar, LinearLayout.LayoutParams(-1, 0, 2.2f))
         root.addView(feelingsStrip())
         applyLook(prefs.getString(PREF_LOOK, "human") ?: "human")
+        // Show who is waking up from the first frame (was: the renderer's default, Unit Seven, for ~25 s).
+        avatar.setCharacter(pipeline.character.id)
 
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
@@ -498,6 +501,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         override fun onSpeechActivity(partial: String) {
             if (!micOn) return
             lastVoiceAt = android.os.SystemClock.elapsedRealtime()
+            pipeline.onVoiceHeard()
             if (pipeline.onUserSpeech(partial)) runOnUiThread { transcript.append(" [interrupted]") }
             runOnUiThread {
                 if (avatar.state == "idle") {
@@ -578,7 +582,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         if (micOn) { toggleMic(); micPausedAway = true }
         // Leaving the app: a good moment for the characters to remember today's conversation.
         // A foreground service keeps it on the fast cores and alive (RememberService).
-        if (::pipeline.isInitialized && pipeline.hasUnremembered()) {
+        if (::pipeline.isInitialized && pipeline.hasBackgroundWork()) {
             val fast = RememberService.start(this)
             pipeline.remember { summary ->
                 runOnUiThread { RememberService.stop() }
@@ -595,6 +599,7 @@ class MainActivity : Activity(), Pipeline.Listener {
     }
 
     private fun selectCharacter(c: Character) {
+        prefs.edit().putString(PREF_CHARACTER, c.id).apply()
         pipeline.select(c)
         avatar.setCharacter(c.id)
         avatar.setState("idle")
@@ -656,6 +661,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         const val PREF_PROFILE = "emotion_profile"
         const val PREF_LOOK = "avatar_look"
         const val PREF_LLM = "llm_model"
+        const val PREF_CHARACTER = "character"
         const val LISTEN_TIMEOUT_MS = 1500L
         /** Share-sheet text travels through Binder (~1 MB limit); keep well under it. */
         const val MAX_SHARE_CHARS = 300_000

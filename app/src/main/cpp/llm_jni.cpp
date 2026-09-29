@@ -35,8 +35,28 @@ Java_dev_playground_companion_engine_NativeLlm_load(JNIEnv * env, jobject, jstri
 }
 
 JNIEXPORT jboolean JNICALL
-Java_dev_playground_companion_engine_NativeLlm_setSystem(JNIEnv * env, jobject, jstring prompt) {
-    return g_engine.set_system(to_std(env, prompt));
+Java_dev_playground_companion_engine_NativeLlm_setSystem(JNIEnv * env, jobject, jstring prompt, jstring cache_path) {
+    return g_engine.set_system(to_std(env, prompt), to_std(env, cache_path));
+}
+
+// [ms, 1 if it came from the cache file, 1 if the cache file now holds this prompt] for the last setSystem.
+JNIEXPORT jdoubleArray JNICALL
+Java_dev_playground_companion_engine_NativeLlm_lastPrime(JNIEnv * env, jobject) {
+    const jdouble v[3] = { g_engine.last_prime_ms(), g_engine.last_prime_cached() ? 1.0 : 0.0, g_engine.last_prime_file_ok() ? 1.0 : 0.0 };
+    jdoubleArray arr = env->NewDoubleArray(3);
+    env->SetDoubleArrayRegion(arr, 0, 3, v);
+    return arr;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_playground_companion_engine_NativeLlm_cancelGen(JNIEnv *, jobject) { return (jlong) g_engine.cancel_gen(); }
+
+JNIEXPORT void JNICALL
+Java_dev_playground_companion_engine_NativeLlm_cancelPrime(JNIEnv *, jobject) { g_engine.cancel_prime(); }
+
+JNIEXPORT jboolean JNICALL
+Java_dev_playground_companion_engine_NativeLlm_primeCache(JNIEnv * env, jobject, jstring prompt, jstring cache_path, jlong gen0) {
+    return g_engine.prime_cache_isolated(to_std(env, prompt), to_std(env, cache_path), (unsigned) gen0);
 }
 
 // Streams UTF-8 pieces to sink.onPiece(byte[]): Boolean. Returns

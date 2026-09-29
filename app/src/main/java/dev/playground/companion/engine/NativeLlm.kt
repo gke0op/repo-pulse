@@ -23,7 +23,16 @@ object NativeLlm {
     external fun init(nativeLibDir: String)
     /** [nThreadsBatch]: threads for prompt processing, which scales with cores; generation uses [nThreads]. */
     external fun load(path: String, nCtx: Int, nThreads: Int, nThreadsBatch: Int): Boolean
-    external fun setSystem(prompt: String): Boolean
+    /** [cachePath]: the primed state is loaded from there when it matches, else primed and saved ("" = no cache). */
+    external fun setSystem(prompt: String, cachePath: String): Boolean
+    /** [ms, 1.0 if the last setSystem came from the cache, 1.0 if the cache file now holds that prompt] */
+    external fun lastPrime(): DoubleArray
+    /** The cancel generation: take it when deciding to prime, so a [cancel] in between still counts. */
+    external fun cancelGen(): Long
+    /** Cancels a [primeCache] only (you started talking), never a reply. */
+    external fun cancelPrime()
+    /** Primes [prompt] in a scratch context and saves it to [cachePath]; the live conversation is untouched. */
+    external fun primeCache(prompt: String, cachePath: String, gen0: Long): Boolean
     private external fun reply(user: String, maxTokens: Int, prefix: String, sink: PieceSink): DoubleArray
     external fun cancel()
     /**

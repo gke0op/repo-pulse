@@ -36,6 +36,12 @@ class SelfReportTest {
         assertTrue(SelfReport.Tracker().line(s.copy(sinceLastTalkMs = null, notes = 0, wishes = 0))!!.contains("this is your first conversation with the user"))
     }
 
+    @Test fun wakeUpIsAReadingNotAGuess() {
+        val line = SelfReport.Tracker().line(snap().copy(wokeInMs = 7_900, promptFromCache = true))!!
+        assertTrue(line.contains("it took you 7.9 seconds to wake up when the app started (your mind was restored from storage, not re-read)"))
+        assertTrue(!SelfReport.Tracker().line(snap())!!.contains("wake up"))
+    }
+
     @Test fun agoReadsNaturally() {
         assertEquals("just now", SelfReport.ago(30_000))
         assertEquals("45 minutes ago", SelfReport.ago(45 * 60_000L))

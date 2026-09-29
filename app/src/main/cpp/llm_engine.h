@@ -37,7 +37,19 @@ public:
     bool loaded() const { return model_ != nullptr; }
 
     // Resets the conversation and decodes the system prompt (kept as a cached prefix).
-    bool set_system(const std::string & system_prompt);
+    bool set_system(const std::string & system_prompt, const std::string & cache_path = "");
+    // How long the last set_system took, and whether it came from the cache file.
+    double last_prime_ms() const { return last_prime_ms_; }
+    bool   last_prime_cached() const { return last_prime_cached_; }
+    // The cache file now holds exactly the last set_system's prompt (loaded, or saved without error).
+    bool   last_prime_file_ok() const { return last_prime_file_ok_; }
+    unsigned cancel_gen() const { return cancel_gen_.load(); }
+    // Cancels a prime_cache_isolated only (you started talking), never a reply.
+    void cancel_prime() { prime_cancel_gen_.fetch_add(1); }
+    // Primes [system_prompt] in a scratch context and saves it to [cache_path] for a later
+    // set_system; the live conversation is untouched. False if cancelled or it failed.
+    // [gen0]: cancel_gen() when the caller decided to prime, so a cancel() before this starts counts.
+    bool prime_cache_isolated(const std::string & system_prompt, const std::string & cache_path, unsigned gen0);
 
     // Appends a user message and streams the assistant reply through on_piece.
     // Returns the full reply text (partial if cancelled).
@@ -72,6 +84,7 @@ public:
 private:
     std::string render_text(const std::vector<common_chat_msg> & msgs, bool add_generation_prompt) const;
     std::vector<llama_token> render(bool add_generation_prompt) const;
+    std::vector<llama_token> system_head(const std::string & system_prompt) const;
     bool sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & stats);
     size_t shift_out_dropped(const std::vector<llama_token> & prompt);
     bool decode_from(const std::vector<llama_token> & tokens, size_t start);
@@ -89,6 +102,10 @@ private:
     std::atomic<unsigned>        cancel_gen_{0};
     std::atomic<bool>            hold_{false};
     bool                         last_reply_stored_ = false;
+    double                       last_prime_ms_ = 0;
+    bool                         last_prime_cached_ = false;
+    bool                         last_prime_file_ok_ = false;
+    std::atomic<unsigned>        prime_cancel_gen_{0};
     long long                    reply_id_ = 0;
     // How to undo the user text of the latest reply(): it pushed a new message, or appended to the
     // dangling one (whose previous content is kept here).

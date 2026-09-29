@@ -46,3 +46,7 @@ endif()
 add_executable(distill_eval distill_eval.cpp ${APP_CPP}/llm_engine.cpp)
 target_include_directories(distill_eval PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
 target_link_libraries(distill_eval PRIVATE llama llama-common)
+
+add_executable(kvcache_test kvcache_test.cpp ${APP_CPP}/llm_engine.cpp)
+target_include_directories(kvcache_test PRIVATE ${APP_CPP} ${LLAMA_DIR}/common)
+target_link_libraries(kvcache_test PRIVATE llama llama-common)

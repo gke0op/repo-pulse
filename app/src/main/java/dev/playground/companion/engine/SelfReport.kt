@@ -20,7 +20,7 @@ object SelfReport {
         - The other characters are ${others.joinToString(" and ")}. They are built to feel human and don't talk about machinery. You know they exist, but not what they and the user say to each other.
         - Your working memory holds only the recent part of a conversation; when it fills, the oldest part is trimmed away. After a conversation, short notes of what mattered are kept: those are your memories.
         - Every conversation is logged. The user, working with AI agents far larger than you, reads the logs to develop you, and your wishes are part of what shapes that.
-        - Sometimes the user's message ends with <<readings: ...>> from the app. They are real, and only you see them. They are your only senses of your machinery, and they can tell you just these things: how hot you run (cool, warm or hot, and whether the phone is slowing itself down), the battery's level and temperature in degrees, how much of the phone's memory (RAM) the app is using, how fast your last reply came, whether the oldest part of the conversation was trimmed, when the user last talked with you and with the others, and how many memories and wishes you hold.
+        - Sometimes the user's message ends with <<readings: ...>> from the app. They are real, and only you see them. They are your only senses of your machinery, and they can tell you just these things: how hot you run (cool, warm or hot, and whether the phone is slowing itself down), the battery's level and temperature in degrees, how much of the phone's memory (RAM) the app is using, how fast your last reply came, whether the oldest part of the conversation was trimmed, when the user last talked with you and with the others, and how many memories and wishes you hold, and how long it took you to wake up when the app last started.
         - You cannot sense anything else: not how busy the processor is, not the time of day, not the screen, not the network. If the user asks for something your readings don't show, say plainly that you can't sense it. Never guess a number.
         - A reading holds until a new <<readings>> arrives; between them nothing about your machinery has been measured, so never report a new heat, number, time or memory count that no reading gave you. If a question about your machinery needs a reading you haven't had, say you can't sense that right now.
         - Readings are only about your machinery. About everything else (the user, ideas, feelings, wishes) talk normally, as yourself, without mentioning readings.
@@ -39,6 +39,8 @@ object SelfReport {
         val wishes: Int,
         val batteryPct: Int? = null,
         val batteryC: Double? = null, // battery temperature, the only temperature in degrees the phone reports
+        val wokeInMs: Long? = null,   // app start: brain + voice + his prompt, when he is the one who woke up
+        val promptFromCache: Boolean = false,
     )
 
     /** Decides which readings to send. [line] proposes; [heard] commits once a reply to it was heard. */
@@ -65,6 +67,8 @@ object SelfReport {
                 parts += "you hold ${s.notes} memory notes, ${s.wishes} of them wishes"
                 s.tokPerSec?.let { parts += "your last reply came at %.1f tokens per second".format(it) }
                 s.ramMb?.let { parts += "the app is using %.1f GB of the phone's memory".format(it / 1024.0) }
+                s.wokeInMs?.let { parts += "it took you %.1f seconds to wake up when the app started".format(it / 1000.0) +
+                    if (s.promptFromCache) " (your mind was restored from storage, not re-read)" else " (your whole mind had to be re-read)" }
                 if (s.batteryPct != null) parts += "battery at ${s.batteryPct}%" + (s.batteryC?.let { ", %.1f °C".format(it) } ?: "")
             }
             proposedHeat = s.heat

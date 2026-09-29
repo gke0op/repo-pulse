@@ -74,7 +74,61 @@ void LlmEngine::unload() {
     kv_tokens_.clear();
 }
 
-bool LlmEngine::set_system(const std::string & system_prompt) {
+// Everything up to where the first user message's text will go. Rendering the system message
+// alone isn't enough: templates without a system role (Gemma) fold it into the first user turn,
+// so that render never matches the real prompt and the whole system prompt was re-decoded on the
+// first reply (measured: 276 tokens, 6.5 s on the phone).
+std::vector<llama_token> LlmEngine::system_head(const std::string & system_prompt) const {
+    static const std::string MARK = "\x01\x02USER\x02\x01";
+    common_chat_msg sys, probe;
+    sys.role      = "system"; sys.content = system_prompt;
+    probe.role    = "user";   probe.content = MARK;
+    const std::string full = render_text({sys, probe}, true);
+    const size_t at = full.find(MARK);
+    const std::string head = at == std::string::npos ? render_text({sys}, false) : full.substr(0, at);
+    return common_tokenize(ctx_, head, /*add_special*/ true, /*parse_special*/ true);
+}
+
+// Saves seq 0 of [ctx]; a failed save (disk full) must not leave a partial file behind (review 2026-09-29).
+static bool save_state(llama_context * ctx, const std::string & path, const std::vector<llama_token> & tokens) {
+    if (llama_state_seq_save_file(ctx, path.c_str(), 0, tokens.data(), tokens.size()) > 0) return true;
+    std::remove(path.c_str());
+    return false;
+}
+
+bool LlmEngine::prime_cache_isolated(const std::string & system_prompt, const std::string & cache_path, unsigned gen0) {
+    if (!model_ || !ctx_) return false;
+    const unsigned pgen0 = prime_cancel_gen_.load();
+    auto cancelled = [&] { return cancel_gen_.load() != gen0 || prime_cancel_gen_.load() != pgen0; };
+    const auto tokens = system_head(system_prompt);
+    if ((int) tokens.size() >= n_ctx_) return false;
+    // Only as big as the prompt, SWA layers window-sized: the saved state holds just these cells
+    // (masked SWA cells are never saved), so it loads into the live context all the same, at about
+    // a third of the RAM of a full-size scratch context (review 2026-09-29; kvcache_test checks it).
+    llama_context_params cp = llama_context_default_params();
+    cp.n_ctx           = (uint32_t) ((tokens.size() + 1 + 255) / 256 * 256);
+    cp.n_batch         = 64;       // small batches: cancel() takes effect quickly
+    cp.n_ubatch        = 64;
+    cp.n_threads       = llama_n_threads(ctx_);
+    cp.n_threads_batch = llama_n_threads_batch(ctx_);
+    cp.swa_full        = false;
+    if (cancelled()) return false;
+    std::unique_ptr<llama_context, decltype(&llama_free)> scratch(llama_init_from_model(model_, cp), &llama_free);
+    if (!scratch) return false;
+    std::unique_ptr<llama_batch, void (*)(llama_batch *)> b(new llama_batch(llama_batch_init(64, 0, 1)),
+        [](llama_batch * p) { llama_batch_free(*p); delete p; });
+    for (size_t i = 0; i < tokens.size(); i += 64) {
+        if (cancelled()) return false;
+        const size_t n = std::min((size_t) 64, tokens.size() - i);
+        common_batch_clear(*b);
+        for (size_t j = 0; j < n; ++j) common_batch_add(*b, tokens[i + j], (llama_pos) (i + j), {0}, i + j == tokens.size() - 1);
+        if (llama_decode(scratch.get(), *b) != 0) return false;
+    }
+    if (cancelled()) return false;
+    return save_state(scratch.get(), cache_path, tokens);
+}
+
+bool LlmEngine::set_system(const std::string & system_prompt, const std::string & cache_path) {
     if (!ctx_) return false;
     msgs_.clear();
     last_reply_stored_ = false;
@@ -82,20 +136,34 @@ bool LlmEngine::set_system(const std::string & system_prompt) {
     sys.role    = "system";
     sys.content = system_prompt;
     msgs_.push_back(sys);
+    const auto tokens = system_head(system_prompt);
+    last_prime_ms_ = 0; last_prime_cached_ = false; last_prime_file_ok_ = false;
+    const double t0 = now_ms();
+    // Already primed with exactly this prompt (the same character again): nothing to read or save.
+    if (kv_tokens_ == tokens) { last_prime_cached_ = last_prime_file_ok_ = !cache_path.empty(); return true; }
 
-    // Precompute everything up to where the first user message's text will go. Rendering the
-    // system message alone isn't enough: templates without a system role (Gemma) fold it into
-    // the first user turn, so that render never matches the real prompt and the whole system
-    // prompt was re-decoded on the first reply (measured: 276 tokens, 6.5 s on the phone).
-    static const std::string MARK = "\x01\x02USER\x02\x01";
-    common_chat_msg probe;
-    probe.role    = "user";
-    probe.content = MARK;
-    const std::string full = render_text({sys, probe}, true);
-    const size_t at = full.find(MARK);
-    const std::string head = at == std::string::npos ? render_text(msgs_, false) : full.substr(0, at);
+    // Reading a ~750-1,400-token system prompt took ~18 s at every launch (phone 2026-09-29). With a
+    // cache file, the primed KV state is loaded instead: used only if it holds exactly these tokens
+    // (the file name must also carry the model and n_ctx), otherwise primed as usual and saved.
+    if (!cache_path.empty()) {
+        std::vector<llama_token> got(tokens.size() + 1);
+        size_t n = 0;
+        llama_memory_seq_rm(llama_get_memory(ctx_), 0, -1, -1);
+        kv_tokens_.clear();
+        if (llama_state_seq_load_file(ctx_, cache_path.c_str(), 0, got.data(), got.size(), &n) > 0 &&
+            n == tokens.size() && std::equal(tokens.begin(), tokens.end(), got.begin())) {
+            kv_tokens_ = tokens;
+            last_prime_cached_ = last_prime_file_ok_ = true;
+            last_prime_ms_ = now_ms() - t0;
+            return true;
+        }
+        llama_memory_seq_rm(llama_get_memory(ctx_), 0, -1, -1); // a partial or stale load
+    }
     LlmTurnStats ignored;
-    return sync_kv(common_tokenize(ctx_, head, /*add_special*/ true, /*parse_special*/ true), ignored);
+    const bool ok = sync_kv(tokens, ignored);
+    if (ok && !cache_path.empty()) last_prime_file_ok_ = save_state(ctx_, cache_path, tokens);
+    last_prime_ms_ = now_ms() - t0;
+    return ok;
 }
 
 std::string LlmEngine::render_text(const std::vector<common_chat_msg> & msgs, bool add_generation_prompt) const {

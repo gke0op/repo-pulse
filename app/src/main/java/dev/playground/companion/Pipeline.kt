@@ -95,15 +95,23 @@ class Pipeline(
         val voiceMs = SystemClock.elapsedRealtime() - t
         Thread(::ttsLoop, "tts").apply { isDaemon = true; start() }
 
+        ui.onStatus("Waking ${character.name}…")
+        dropStaleKvCaches()
         applyCharacter(character)
+        val (primeMs, cached) = NativeLlm.lastPrime().let { it[0].toLong() to (it[1] > 0) }
+        woke = if (character.id == SelfReport.CHARACTER_ID) (llmMs + voiceMs + primeMs) to cached else null
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ctx $N_CTX | threads llm $LLM_THREADS/$LLM_BATCH_THREADS tts ${voiceEngine.threads}")
+            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ${character.name}'s prompt ${primeMs} ms (${if (cached) "from cache" else "read, now cached"}) | ctx $N_CTX | threads llm $LLM_THREADS/$LLM_BATCH_THREADS tts ${voiceEngine.threads}")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
         ui.onStatus("Ready")
         onReady()
+        // Then, while nobody talks, get the others ready (queued behind anything you say first).
+        val since = stops
+        val gen0 = NativeLlm.cancelGen()
+        llmExec.execute { primeStaleCaches(since, gen0) }
     }
 
     /** Must run on the llm thread: nothing else touches the voice while it's swapped. */
@@ -176,9 +184,13 @@ class Pipeline(
                 NativeLlm.unload()
                 check(NativeLlm.load(store.llmFile(m).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS)) { "failed to load ${m.label}" }
                 llmModel = m
+                dropStaleKvCaches()
                 applyCharacter(character)
                 ui.onStatus("Ready")
                 onDone(null)
+                val since = stops
+                val gen0 = NativeLlm.cancelGen()
+                llmExec.execute { primeStaleCaches(since, gen0) }
             } catch (t: Throwable) {
                 // Fall back to whatever loads, so the app stays usable.
                 runCatching { NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS); applyCharacter(character) }
@@ -194,12 +206,63 @@ class Pipeline(
         llmExec.execute { applyCharacter(c) }
     }
 
-    private fun applyCharacter(c: Character) {
+    /** Before load(): who to wake up as (the one you last talked to). */
+    fun restore(c: Character) { character = c }
+
+    private fun systemPrompt(c: Character): String {
         val self = if (SelfReport.ENABLED && c.id == SelfReport.CHARACTER_ID)
             SelfReport.harness(llmModel.label, voiceEngine.label, CHARACTERS.filter { it.id != c.id }.map { it.name }) else ""
+        return c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self)
+    }
+
+    /**
+     * The primed system prompt, saved per brain, context size and character. Reading the prompt
+     * took ~18 s at every launch (phone 2026-09-29: 30 s to the first word); loading this doesn't.
+     * The engine only uses it when it holds exactly the current prompt's tokens.
+     */
+    private fun kvCache(c: Character): java.io.File =
+        java.io.File(ctx.filesDir, "kv").apply { mkdirs() }.resolve("${kvPrefix()}${c.id}.kv")
+    /** Brain file, its size (a replaced file under the same name must not load old state) and n_ctx. */
+    private fun kvPrefix() = "${llmModel.fileName}.${store.llmFile(llmModel).length()}.$N_CTX."
+
+    /** Other brains' and context sizes' caches: ~15-150 MB each, useless now. */
+    private fun dropStaleKvCaches() {
+        java.io.File(ctx.filesDir, "kv").listFiles()?.filter { !it.name.startsWith(kvPrefix()) }?.forEach { it.delete() }
+    }
+
+    /** Which prompt a cache file holds, so a stale one is re-primed without reading it (the engine checks tokens too). */
+    private fun cacheKey(prompt: String) = "${prompt.length}:${prompt.hashCode()}"
+    private fun cacheFresh(c: Character, prompt: String): Boolean {
+        val f = kvCache(c); val key = java.io.File(f.path + ".key")
+        return f.exists() && key.exists() && key.readText() == cacheKey(prompt)
+    }
+
+    private fun applyCharacter(c: Character) {
         selfTracker.reset()
-        NativeLlm.setSystem(c.systemPrompt(Memory.promptBlock(memory.notes(c.id)), self))
+        val prompt = systemPrompt(c)
+        // The key only when the file really holds this prompt, and never fatally (disk full: review 2026-09-29).
+        if (NativeLlm.setSystem(prompt, kvCache(c).path) && NativeLlm.lastPrime()[2] > 0)
+            runCatching { java.io.File(kvCache(c).path + ".key").writeText(cacheKey(prompt)) }
         robot = if (c.robot) RobotFilter(voice.sampleRate) else null
+    }
+
+    /**
+     * Primes every character whose cache is missing or stale (a scratch context; the live
+     * conversation is untouched), the one you talk to first. Each takes ~13-40 s on the phone, so
+     * without this the first wake-up or switch to Kai or Seven read his prompt (2026-09-29). Any
+     * stop() (you spoke) cancels it; the rest waits for the next idle moment. Runs on the llm thread.
+     */
+    private fun primeStaleCaches(since: Int, gen0: Long, report: MutableList<String>? = null) {
+        for (c in CHARACTERS.sortedBy { if (it == character) 0 else 1 }) {
+            if (stops != since) return
+            val prompt = systemPrompt(c)
+            if (cacheFresh(c, prompt)) continue
+            val t0 = SystemClock.elapsedRealtime()
+            if (NativeLlm.primeCache(prompt, kvCache(c).path, gen0) && stops == since) {
+                runCatching { java.io.File(kvCache(c).path + ".key").writeText(cacheKey(prompt)) }
+                report?.add("${c.name}: ready for next time (${(SystemClock.elapsedRealtime() - t0) / 1000} s)")
+            }
+        }
     }
 
     /** True from a turn's start until its last audio has played. */
@@ -368,6 +431,8 @@ class Pipeline(
 
     // ---- Unit Seven's readings (SelfReport) ------------------------------------------------
     private val selfTracker = SelfReport.Tracker()
+    /** How long Unit Seven took to wake up at app start, and whether his prompt came from the cache. */
+    @Volatile private var woke: Pair<Long, Boolean>? = null
     @Volatile private var lastHeard: TurnTrace? = null
 
     private fun selfSnapshot(): SelfReport.Snapshot {
@@ -390,6 +455,8 @@ class Pipeline(
             others = CHARACTERS.filter { it.id != SelfReport.CHARACTER_ID }.map { c -> c.name to memory.lastTalked(c.id)?.let { now - it } },
             notes = notes.size,
             wishes = notes.count { it.tag == Memory.Tag.WISH },
+            wokeInMs = woke?.first,
+            promptFromCache = woke?.second == true,
         )
     }
 
@@ -408,6 +475,7 @@ class Pipeline(
         // Counted here, on the caller's thread: a stop() after leaving (you came back and spoke while
         // this waited behind a reply) must still cancel it (review 2026-09-28).
         val since = stops
+        val gen0 = NativeLlm.cancelGen()
         llmExec.execute {
             val report = mutableListOf<String>()
             run all@{
@@ -432,11 +500,19 @@ class Pipeline(
                     }
                 }
             }
+            // New notes change the prompts: prime them now, while you're away, so the next launch or
+            // switch loads them instead of reading them.
+            primeStaleCaches(since, gen0, report)
             onDone(report.joinToString("\n"))
         }
     }
 
+    /** You started talking: get the brain back from any background priming now, not at end of turn. */
+    fun onVoiceHeard() = NativeLlm.cancelPrime()
+
     fun hasUnremembered(): Boolean = CHARACTERS.any { memory.pending(it.id).isNotEmpty() }
+    /** Something for remember() to do while you're away: memories to distill or prompts to prime. */
+    fun hasBackgroundWork(): Boolean = hasUnremembered() || CHARACTERS.any { !cacheFresh(it, systemPrompt(it)) }
 
     /** Everything each character remembers, for the Models menu. */
     fun memoryReport(): String = CHARACTERS.joinToString("\n\n") { c ->
