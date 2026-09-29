@@ -7,6 +7,8 @@ import bpy, bmesh, sys, json
 from mathutils import Vector, Matrix
 args = sys.argv[sys.argv.index('--') + 1:]
 char_p, out_p, donors = args[0], args[1], [a.split('=', 1) for a in args[2:]]
+# TAG=path@mohawk keeps only the donor's strands along the centre line of the head (the cap makes the shaved sides)
+donors = [(t, p.split('@')[0], (p.split('@') + [''])[1]) for t, p in donors]
 PARTS = ('bangs', 'sides', 'back', 'extras', 'accessory')
 TEX_MAX = 1024
 
@@ -163,7 +165,7 @@ for i in reversed(range(len(sa.bone_groups))):
 label_chains(split(own, 'O'), 'O', own_groups)
 
 # ---- donors
-for tag, path in donors:
+for tag, path, mode in donors:
     d_arm, d_objs = import_vrm(path)
     dH, dw = head_metrics(d_arm, d_objs)
     d_hair = [o for o in d_objs if o.type == 'MESH' and o.name.startswith('Hair')]
@@ -206,6 +208,23 @@ for tag, path in donors:
         bpy.ops.object.select_all(action='DESELECT')
         for o in d_hair: o.select_set(True)
         bpy.context.view_layer.objects.active = d_hair[0]; bpy.ops.object.join()
+    if mode == 'mohawk':
+        hob = d_hair[0]; Mh = hob.matrix_world
+        bmh = bmesh.new(); bmh.from_mesh(hob.data); bmh.faces.ensure_lookup_table()
+        seen, kill, keep_n = set(), [], 0
+        for f in bmh.faces:
+            if f.index in seen: continue
+            st, fs = [f], []; seen.add(f.index)
+            while st:
+                x = st.pop(); fs.append(x)
+                for e in x.edges:
+                    for y in e.link_faces:
+                        if y.index not in seen: seen.add(y.index); st.append(y)
+            P = [Mh @ v.co for x in fs for v in x.verts]; c = sum(P, Vector()) / len(P)
+            if abs(c.x - H.x) > 0.024 or max(p.z for p in P) < H.z + 0.07: kill.extend(fs)
+            else: keep_n += 1
+        bmesh.ops.delete(bmh, geom=kill, context='FACES'); bmh.to_mesh(hob.data); bmh.free()
+        log('mohawk', tag, 'kept', keep_n, 'strips')
     label_chains(split(d_hair[0], tag), tag, groups)
 
 # ---- the scalp cap (body's HairBack material) becomes its own always-present part "HairPart_base_cap",
