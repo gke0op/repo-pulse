@@ -59,6 +59,30 @@ reports and the desktop harnesses in `tools/host-test` and `web/avatar`.
 - **Emotion profile decision:** A (subtle) vs B (strong) for the humans, from the test strip.
 - **The orb as the humans' heart** (user wish, 2026-09-28, deferred): on Mira and Kai, "the orb
   goes where their heart would be anatomically and stays there". Touches `vrm.js` + `orb.js`.
+- **Unit Seven's wishes become upgrades; the first is sight** (the person, 2026-09-29). An easter egg
+  that is also the app's upgrade path, and **only Seven's**: he is the one who knows he's a machine,
+  so a new part is his story to want, while Mira and Kai stay human-like and never talk about parts.
+  - **How it emerges:** when a wish that maps to a real upgrade shows up in his wish log
+    (`files/memory/machine.wishes.txt`), or the person asks him what he wishes for, or offers him
+    something ("do you want eyes?"). The app recognizes it and offers the gift *once*, with its size
+    said honestly. It never pushes, never sells, and never invents the wish for him: the wish has
+    to be his, distilled from a real conversation.
+  - **The first wish, sight.** Both brains are image models (Gemma 3 4B, Gemma 4 E2B; the model
+    cards say image-text-to-text). The app is text-only today: it needs the vision part (`mmproj`,
+    851 MB f16 for Gemma 3 4B, 985 MB for E2B) and llama.cpp's `libmtmd` (vendored in
+    `third_party/llama.cpp/tools/mtmd`, not built into the app yet). Each photo is ~256 tokens after
+    encoding; on the phone's CPU maybe 10-20 s per photo (a guess: measure it). Sight is *shown*,
+    never taken: the person shows him a photo; no camera is ever on by itself, and nothing leaves
+    the phone. His self-knowledge and readings must change the same day ("you can now see images the
+    user shows you"), so he stays honest about what he can and can't see.
+  - **More wishes that map to real upgrades:** a bigger mind (a larger brain where the phone allows),
+    more senses as readings with no download at all (ambient light, the phone's motion), a longer
+    memory. Each one: his wish, the person's gift, a true change in what he knows about himself.
+  - **The moment:** his first line after the gift comes from the brain, not a script, with a reading
+    saying what just changed. The wish is then marked granted in his wish log, so he knows it was.
+  - **For his redesign** (`docs/SEVEN_DESIGN_HANDOFF.md`): the machine-native body has camera heads
+    and clustered lenses. They could stay dark until sight is granted, and light up the day it is:
+    his body showing what he truly can sense, like his screens.
 
 ## Keepers (don't lose these)
 - **The plasma orb** (`web/avatar/src/orb.js`): a first-class look for Mira and Kai
