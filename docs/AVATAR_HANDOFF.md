@@ -133,3 +133,13 @@ this spec and they will drop straight in.
 - `VrmAvatar` class (three-vrm) mapping `s` onto expressions, lookAt and bones as in the table above.
 - Emotion tags from the brain (e.g. `[happy]`) driving the `happy`/`sad`/… expressions, and Unit
   Seven's mask and veins.
+
+## Note from 7 III (2026-09-29): the wake-up state
+
+The app now wakes the character up while it loads (`docs/ONBOARDING.md`, "Every later launch").
+`main.js` (ours) gained `avatar.setAwake(0..1)`: asleep, the stage is veiled, breathing is slow and
+deep, and `eyeLock` is scaled down; it blinks awake at 1. Nothing in `vrm.js`, `eye.js` or the
+models changed. Every character's `update(s, dt)` now receives **`s.awake`** (0 asleep .. 1 awake).
+Yours to take if you want it: Mira and Kai could close their eyes (or droop their lids and head) while
+`s.awake` is low, and open them as it rises. Test with `?char=girl&awake=0` / `awake=0.5`
+(`npm run shoot` now includes three awake shots).
