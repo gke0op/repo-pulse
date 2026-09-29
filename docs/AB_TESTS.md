@@ -151,6 +151,18 @@ Found on the way (fixed in 0.15.3):
 - **The mic listened after you left**, and a sound as you closed the app cancelled the remembering
   1 s in. The mic now pauses in `onStop` and comes back in `onStart`. Untested on the phone.
 
+## Seven confabulated a document and an "instability" (phone 2026-09-29 04:54)
+
+Asked about a handoff document the big agents wrote, Unit Seven first said he didn't recall it,
+then under leading questions claimed it was in his memory (it wasn't: 0 of 19 notes), invented a
+title, and explained the missing contents with "fragmented data… my internal state remains
+unstable". Every reading was healthy. The truth was missing: he didn't know such documents exist
+and that he can't read them. Now his self-knowledge says so, and that a gap is never a malfunction
+unless his readings say it. Mac replay of the person's 9 lines with realistic readings
+(`drift_eval`, Gemma 3 4B): invented contents 3/3 -> 1/3 -> **0/5** once it also knows *why*
+(the person values his honesty above everything); "I can't see it, tell me what it says" 0/3 ->
+4/5; a leftover small excuse (a trim that didn't happen) 2/5.
+
 ## Measured and rejected (no A/B needed)
 
 - **Fewer denoising steps** for Supertonic: synth 305 ms (5 steps) -> 231 (4) -> 202 (3) -> 136 (2)
