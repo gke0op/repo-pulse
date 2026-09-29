@@ -19,3 +19,4 @@ web/avatar/node_modules/
 
 # Python
 __pycache__/
+models/avatar/donors/*.vrm

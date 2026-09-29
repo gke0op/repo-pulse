@@ -151,7 +151,7 @@ def take_groups(sa_src, colmap, scale=1.0):
     out = []
     for g in sa_src.bone_groups:
         roots = [b.bone_name for b in g.bones]
-        if roots and all(r.startswith('HairJoint') for r in roots):
+        if roots and all(r.startswith(('HairJoint', 'J_Sec_Hair')) for r in roots):
             out.append(dict(roots=roots, stiff=g.stiffiness, grav=g.gravity_power, gdir=tuple(g.gravity_dir), drag=g.drag_force,
                             r=g.hit_radius * scale, cols=[colmap.get(c.collider_group_uuid) for c in g.collider_groups]))
     return out
@@ -161,7 +161,7 @@ def take_groups(sa_src, colmap, scale=1.0):
 own = next(o for o in objs if o.type == 'MESH' and 'Hair' in o.name)
 own_groups = take_groups(sa, {cg.uuid: cg.node.bone_name for cg in sa.collider_groups})
 for i in reversed(range(len(sa.bone_groups))):
-    if any(b.bone_name.startswith('HairJoint') for b in sa.bone_groups[i].bones): sa.bone_groups.remove(i)
+    if any(b.bone_name.startswith(('HairJoint', 'J_Sec_Hair')) for b in sa.bone_groups[i].bones): sa.bone_groups.remove(i)
 label_chains(split(own, 'O'), 'O', own_groups)
 
 # ---- donors
@@ -181,7 +181,7 @@ for tag, path, mode in donors:
     bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
     def is_hair(b):
         while b:
-            if b.name.startswith('HairJoint'): return True
+            if b.name.startswith(('HairJoint', 'J_Sec_Hair')): return True
             b = b.parent
         return False
     bpy.ops.object.mode_set(mode='EDIT')
