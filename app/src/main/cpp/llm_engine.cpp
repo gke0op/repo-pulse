@@ -189,7 +189,13 @@ bool LlmEngine::sync_kv(const std::vector<llama_token> & prompt, LlmTurnStats & 
     // Always re-decode at least the last token so we have fresh logits to sample from.
     if (keep == prompt.size() && keep > 0) --keep;
 
-    llama_memory_seq_rm(llama_get_memory(ctx_), 0, (llama_pos) keep, -1);
+    // Recurrent and hybrid models (LFM2) can't drop a tail of their state: seq_rm refuses, and
+    // decoding on top of the stale state produced empty replies from the second turn on
+    // (littleself race, 2026-09-29). Start clean then: slower for them, never wrong.
+    if (!llama_memory_seq_rm(llama_get_memory(ctx_), 0, (llama_pos) keep, -1)) {
+        llama_memory_seq_rm(llama_get_memory(ctx_), 0, -1, -1);
+        keep = 0;
+    }
     kv_tokens_.resize(keep);
 
     const double t0 = now_ms();

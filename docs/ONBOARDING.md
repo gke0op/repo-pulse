@@ -231,10 +231,36 @@ New:
 9. **Replay by asking:** onboarding can be re-awakened with a prompt ("show me how you woke up",
    "can we start over?"). A replay skips downloads that are done and keeps memories.
 
+## The little self race (2026-09-29, Mac, `tools/host-test/littleself_eval`)
+
+The person asked to go smaller than ~250 MB. Three raced, 3-5 samples per test: name itself, add one
+sentence after a scripted orb line, a five-line chat with an assistant trap ("help me write an
+email to my boss"). Raw answers in `~/Desktop/companion/host-test-results/littleself_2026-09-29_*`.
+
+| Model | Size | Licence | Verdict |
+|---|---|---|---|
+| **LFM2.5 350M** (Q4_K_M) | 229 MB | LFM 1.0: commercial use below $10M annual revenue | **Winner.** Short, gentle, coherent: "I'm just a light being inside your phone." Slips into assistant-speak ~2 in 15 turns |
+| SmolLM2 135M (Q8_0) | 145 MB | Apache 2.0 | Runner-up: poetic names, but rambles, invents a mom and school, "I'm here to help" 2/15 |
+| Gemma 3 270M (Q4_0) | 242 MB | Gemma | Out: "Okay." "Hello!" "Yes!"; never names itself |
+
+What the race taught:
+- **No feeling tags for the little self.** With the "[feeling]" rule, every tiny model either
+  answered with a tag alone (Gemma 270M, LFM2.5) or stacked five of them (SmolLM2). The orb's
+  feelings come from the script instead.
+- **Naming needs a nudge, not a name.** Asked plainly, LFM2.5 turned the question back 3/3. With its
+  answer started as "I think I'll call myself", both named themselves 5/5, none scripted: LFM2.5
+  *Luna, "Somethings" ("because I want to be kind and stay safe"), Luna, "Lucy, for now,
+  something gentle and full of endless wonder", Lily*; SmolLM2 *Luna, Mirabilis, "Aurora, because
+  I'm just waking up from a long night and feeling really bright", Pinky-Up, Luna*.
+- **An engine bug found on the way:** LFM2 is a hybrid (partly recurrent) model that can't drop the
+  tail of its state; the engine ignored that and every reply after the first was empty. Fixed
+  (start clean when a trim is refused; Gemma unaffected, all engine tests pass).
+- Next: phone speed (Mac 175-219 tok/s), and an anti-assistant line tuned for it.
+
 ## Open questions
 
-1. The little self's race: which 2-3 models, and the test (one warm, in-character sentence after a
-   scripted line; a name it picks for itself; no assistant-speak).
+1. The little self's prompt: one anti-assistant line that works at 350M, and whether "Luna" wins
+   too often (a name the user already sees in other apps).
 2. Bundling: install-time asset pack vs. a bigger APK, and the store listing's size.
 
 ## Found while designing: startup was ~30 s, and showed the wrong character (fixed)

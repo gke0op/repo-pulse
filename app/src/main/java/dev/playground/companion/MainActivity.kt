@@ -116,6 +116,7 @@ class MainActivity : Activity(), Pipeline.Listener {
         applyLook(prefs.getString(PREF_LOOK, "human") ?: "human")
         // Show who is waking up from the first frame (was: the renderer's default, Unit Seven, for ~25 s).
         avatar.setCharacter(pipeline.character.id)
+        avatar.setAwake(0f)   // asleep until the pieces load (Pipeline.load wakes it)
 
         status = label(14f, Color.rgb(150, 200, 255)).apply { text = "Starting…" }
         root.addView(status)
@@ -622,6 +623,8 @@ class MainActivity : Activity(), Pipeline.Listener {
     }
 
     override fun onStatus(text: String) = runOnUiThread { status.text = text }
+
+    override fun onWake(level: Float) { avatar.setAwake(level) }
 
     override fun onReplyText(turn: Int, piece: String) = runOnUiThread {
         if (turn == liveTurn) transcript.append(piece)

@@ -69,6 +69,9 @@ class AvatarView(ctx: Context, private val modelFile: (String) -> java.io.File) 
 
     fun setCharacter(id: String) = js("avatar.setCharacter('$id')")
 
+    /** 0 asleep .. 1 awake: the wake-up while the app loads. */
+    fun setAwake(level: Float) = js("avatar.setAwake(${String.format(Locale.US, "%.2f", level)})")
+
     /** idle | listening | thinking | speaking */
     fun setState(s: String) {
         post { state = s }

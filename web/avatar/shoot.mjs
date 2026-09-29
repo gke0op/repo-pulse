@@ -59,6 +59,15 @@ for (const [char, state, action, emo, profile, look] of shots) {
   await page.screenshot({ path: file });
   console.log('shot', file);
 }
+// Waking up (the app's launch): asleep, half awake. The veil and slow breath must render.
+for (const [char, awake] of [['machine', 0], ['machine', 0.5], ['girl', 0]]) {
+  await page.goto(`${page_url}?char=${char}&t=7&awake=${awake}`);
+  await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });
+  await page.waitForTimeout(1500);
+  const file = path.join(out, `avatar-${char}-awake-${awake}.png`);
+  await page.screenshot({ path: file });
+  console.log('shot', file);
+}
 // Live look switching, as the app's Models menu does it: human -> orb -> human.
 await page.goto(`${page_url}?char=girl&t=7`);
 await page.waitForFunction(() => window.avatar?.isLoaded(), null, { timeout: 60000 });

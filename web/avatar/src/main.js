@@ -9,6 +9,7 @@
 //   avatar.setEmotion('calm'|'happy'|'sad'|'angry'|'surprised'|'curious'|'tender')
 //   avatar.setProfile('A' | 'B')                            // emotion intensity A/B (humans)
 //   avatar.setLook('human' | 'orb')                         // Mira and Kai as VRM humans or plasma orbs
+//   avatar.setAwake(0..1)                                   // waking up while the app loads (0 = asleep)
 //   avatar.pause() / avatar.resume()
 import * as THREE from 'three';
 import { Shoggoth } from './shoggoth.js';
@@ -75,6 +76,7 @@ const KEYS = ['ripple', 'lean', 'unrest', 'swirl', 'eyeLock', 'dilate', 'pulse',
 
 const s = {
   t: 0, breath: 1, speech: 0, mouth: 0, glitch: 0, nod: 0, tilt: 0,
+  awake: 1,       // 0 asleep .. 1 awake; characters may read it (e.g. close their eyes while asleep)
   focus: new THREE.Vector3(0, 0.1, 7), glowColor: new THREE.Color(0x7fffe0),
   profile: 'A',   // emotion intensity profile for the humans (A/B test), see vrm.js
 };
@@ -135,6 +137,28 @@ function setLook(l) {
   if (next === look) return;
   look = next;
   if (charId && charId !== 'machine') setCharacter(charId, true);
+}
+
+// ---- waking up ---------------------------------------------------------------------
+// While the app loads, the character sleeps: the stage is dim, breathing slow and deep, eyes not
+// on you. Each piece that loads wakes it a little more; fully awake, it blinks and looks at you.
+// Touch still reaches it while asleep: the body is never slow.
+let wakeTarget = 1;
+const sleepVeil = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
+);
+sleepVeil.position.z = -0.2;
+sleepVeil.scale.setScalar(0.2);   // well past the frustum at z -0.2 for this fov
+sleepVeil.renderOrder = 999;
+camera.add(sleepVeil);
+scene.add(camera);
+function setAwake(level) {
+  const l = Math.max(0, Math.min(1, Number(level) || 0));
+  if (l === 0) { wakeTarget = 0; s.awake = 0; return; }   // asleep now, not fading to it
+  const was = wakeTarget;
+  wakeTarget = Math.max(wakeTarget, l);                     // pieces load in any order: only wake further
+  if (wakeTarget >= 1 && was < 1) { character?.blinkCascade(); s.breath = 1.04; }
 }
 
 // ---- lip-sync --------------------------------------------------------------------
@@ -222,7 +246,10 @@ function frame() {
   s.mouth += (e - s.mouth) * (1 - Math.exp(-dt * (e > s.mouth ? 28 : 10)));
   s.speech += (e - s.speech) * (1 - Math.exp(-dt * 8));
   s.pulse = Math.max(s.pulse, s.speech * 0.9);
-  s.breath += (1 + 0.015 * Math.sin(s.t * 0.9) - s.breath) * (1 - Math.exp(-dt * 4));
+  s.awake += (wakeTarget - s.awake) * (1 - Math.exp(-dt * 1.5));
+  const asleep = 1 - s.awake;
+  sleepVeil.material.opacity = 0.82 * Math.pow(asleep, 1.2);
+  s.breath += (1 + 0.015 * (1 + 1.5 * asleep) * Math.sin(s.t * 0.9 * (1 - 0.55 * asleep)) - s.breath) * (1 - Math.exp(-dt * 4));
   s.glitch *= Math.exp(-dt * 6);
   s.nod = stateName === 'listening' ? Math.sin(s.t * 1.1) * 0.03 : s.nod * 0.95;
   s.tilt = stateName === 'thinking' ? Math.sin(s.t * 0.7) * 0.08 : s.tilt * 0.95;
@@ -231,10 +258,14 @@ function frame() {
   const focusWorld = now < touchUntil ? touchPoint : camera.position;
   s.focus.copy(focusWorld);
   if (character?.group) character.group.worldToLocal(s.focus);
+  // Asleep, the eyes don't seek you out; a touch still gets their attention.
+  const eyeLock = s.eyeLock;
+  s.eyeLock *= s.awake;
   if (now < touchUntil) s.eyeLock = 1;
 
   dustU.uTime.value = s.t;
   character?.update(s, dt);
+  s.eyeLock = eyeLock;
   renderer.render(scene, camera);
 }
 
@@ -254,6 +285,7 @@ window.avatar = {
   setEmotion,
   setProfile(p) { s.profile = p === 'B' ? 'B' : 'A'; },
   setLook,
+  setAwake,
   isLoaded: () => character?.vrm !== null,
   debug: () => character?.debug?.(),   // false while a VRM model is still loading
   pause() { running = false; },
@@ -270,5 +302,6 @@ setCharacter(params.get('char') || 'machine');
 if (params.get('state')) window.avatar.setState(params.get('state'));
 if (params.get('emo')) window.avatar.setEmotion(params.get('emo'));
 if (params.get('profile')) window.avatar.setProfile(params.get('profile'));
+if (params.get('awake')) { setAwake(0); setAwake(parseFloat(params.get('awake'))); }
 frame();
 window.AndroidAvatar?.onReady();

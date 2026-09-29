@@ -58,6 +58,8 @@ class Pipeline(
         fun onEmotion(emotion: Emotion) {}
         /** The full reply text is known (even if playback is later cut off). */
         fun onReplyComplete(trace: TurnTrace) {}
+        /** Waking up at launch: 0 asleep .. 1 awake, as each piece is ready (called from worker threads). */
+        fun onWake(level: Float) {}
     }
 
     private val llmExec = Executors.newSingleThreadExecutor { Thread(it, "llm") }
@@ -81,32 +83,39 @@ class Pipeline(
 
     fun load(onReady: () -> Unit) = llmExec.execute {
         val memStart = MemProbe.read(ctx)
-        ui.onStatus("Loading LLM…")
+        ui.onStatus("Waking ${character.name}…")
+        ui.onWake(0.1f)
         if (!store.llmReady(llmModel)) llmModel = LlmModel.entries.first(store::llmReady)
-        var t = SystemClock.elapsedRealtime()
+        if (!store.voiceReady(voiceEngine)) voiceEngine = VoiceEngine.entries.first(store::voiceReady)
+        // Brain and voice load side by side (they were one after the other: ~5 s + ~1.6 s).
+        val t0 = SystemClock.elapsedRealtime()
+        var voiceMs = 0L
+        var voiceError: Throwable? = null
+        val voiceThread = Thread({
+            try { loadVoice(voiceEngine) } catch (t: Throwable) { voiceError = t }
+            voiceMs = SystemClock.elapsedRealtime() - t0
+            ui.onWake(0.4f)
+        }, "voice-load").apply { start() }
         NativeLlm.init(ctx.applicationInfo.nativeLibraryDir)
         check(NativeLlm.load(store.llmFile(llmModel).path, N_CTX, LLM_THREADS, LLM_BATCH_THREADS)) { "LLM failed to load" }
-        val llmMs = SystemClock.elapsedRealtime() - t
-
-        ui.onStatus("Loading voice…")
-        if (!store.voiceReady(voiceEngine)) voiceEngine = VoiceEngine.entries.first(store::voiceReady)
-        t = SystemClock.elapsedRealtime()
-        loadVoice(voiceEngine)
-        val voiceMs = SystemClock.elapsedRealtime() - t
+        val llmMs = SystemClock.elapsedRealtime() - t0
+        ui.onWake(0.6f)
+        voiceThread.join()
+        voiceError?.let { throw it }
         Thread(::ttsLoop, "tts").apply { isDaemon = true; start() }
 
-        ui.onStatus("Waking ${character.name}…")
         dropStaleKvCaches()
         applyCharacter(character)
         val (primeMs, cached) = NativeLlm.lastPrime().let { it[0].toLong() to (it[1] > 0) }
-        woke = if (character.id == SelfReport.CHARACTER_ID) (llmMs + voiceMs + primeMs) to cached else null
+        woke = if (character.id == SelfReport.CHARACTER_ID) (SystemClock.elapsedRealtime() - t0) to cached else null
         val mem = MemProbe.read(ctx)
         loadReport = buildString {
-            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms | ${character.name}'s prompt ${primeMs} ms (${if (cached) "from cache" else "read, now cached"}) | ctx $N_CTX | threads llm $LLM_THREADS/$LLM_BATCH_THREADS tts ${voiceEngine.threads}")
+            appendLine("LOAD  llm ${llmModel.label} ${llmMs} ms | voice ${voiceEngine.label} ${voiceMs} ms (side by side) | ${character.name}'s prompt ${primeMs} ms (${if (cached) "from cache" else "read, now cached"}) | ctx $N_CTX | threads llm $LLM_THREADS/$LLM_BATCH_THREADS tts ${voiceEngine.threads}")
             appendLine("RAM   before ${memStart.rssMb} MB -> after ${mem.rssMb} MB rss | avail ${mem.availMb}/${mem.totalMb} MB")
             append("CPU   ").append(NativeLlm.systemInfo().trim())
         }
         ui.onStatus("Ready")
+        ui.onWake(1f)
         onReady()
         // Then, while nobody talks, get the others ready (queued behind anything you say first).
         val since = stops
