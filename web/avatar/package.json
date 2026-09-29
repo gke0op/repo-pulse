@@ -5,7 +5,10 @@
   "scripts": {
     "build": "esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfile=../../app/src/main/assets/avatar/avatar.js",
     "watch": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=../../app/src/main/assets/avatar/avatar.js --watch",
-    "shoot": "node shoot.mjs"
+    "shoot": "node shoot.mjs",
+    "proto": "node proto/serve.mjs",
+    "check-script": "node proto/check_script.mjs",
+    "walk-proto": "node proto/walk.mjs"
   },
   "dependencies": {
     "@pixiv/three-vrm": "3.5.5",

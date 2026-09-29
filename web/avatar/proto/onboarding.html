@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Orb onboarding (prototype)</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #05050a; touch-action: none; }
+    canvas { display: block; }
+    #phone { position: fixed; top: 0; pointer-events: none; overflow: hidden; color: #ece9ff;
+      font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif; }
+    #sub { position: absolute; left: 9%; right: 9%; bottom: 20%; text-align: center; font-size: 21px; line-height: 1.38;
+      text-shadow: 0 0 18px rgba(143, 125, 255, .6); opacity: 0; transform: translateY(8px);
+      transition: opacity .5s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
+    #sub.on { opacity: 1; transform: none; }
+    #sub .who { display: block; font-size: 11px; letter-spacing: .22em; text-transform: uppercase; opacity: .55; margin-bottom: 7px; }
+    #sub .rest { opacity: 0; }   /* not said yet: it holds the line's shape */
+    #progress { position: absolute; top: 4.5%; left: 0; right: 0; text-align: center; font-size: 12px; letter-spacing: .14em;
+      color: #bdb7ea; opacity: 0; transition: opacity .8s; }
+    #progress.on { opacity: .8; }
+    #choices { position: absolute; left: 0; right: 0; bottom: 6%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .choice { pointer-events: auto; font: inherit; font-size: 17px; color: #f4f2ff; cursor: pointer;
+      background: rgba(143, 125, 255, .14); border: 1px solid rgba(190, 180, 255, .35); border-radius: 999px; padding: 13px 26px;
+      box-shadow: 0 0 24px rgba(143, 125, 255, .25), inset 0 0 12px rgba(160, 240, 255, .08); backdrop-filter: blur(6px);
+      opacity: 0; transform: translateY(12px) scale(.94);
+      transition: opacity .45s ease, transform .55s cubic-bezier(.34, 1.56, .64, 1), background .2s; }
+    .choice.on { opacity: 1; transform: none; }
+    .choice:hover { background: rgba(143, 125, 255, .26); }
+    .choice .size { opacity: .6; font-size: 14px; margin-left: 9px; }
+    .choice.quiet { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; color: #a9a4d0; font-size: 15px; padding: 6px 14px; }
+    .portraits { display: flex; gap: 18px; }
+    .choice.portrait { display: flex; flex-direction: column; align-items: center; gap: 9px; background: none; border: none;
+      box-shadow: none; backdrop-filter: none; padding: 4px 6px; font-size: 15px; }
+    .dot { width: 58px; height: 58px; border-radius: 50%; transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+    .portrait:hover .dot { transform: scale(1.12); }
+    .dot.girl { background: radial-gradient(circle at 40% 35%, #ffe2b8, #ff6f91 55%, #4a0c28); box-shadow: 0 0 26px rgba(255, 111, 145, .55); }
+    .dot.boy { background: radial-gradient(circle at 40% 35%, #d4f6ff, #3f7fff 55%, #081848); box-shadow: 0 0 26px rgba(63, 127, 255, .55); }
+    .dot.machine { background: radial-gradient(circle at 40% 35%, #fff0c4, #2fbfa0 55%, #052620); box-shadow: 0 0 26px rgba(255, 200, 107, .5); }
+    .letter { position: absolute; color: #f2f0ff; white-space: pre;
+      text-shadow: 0 0 16px rgba(160, 240, 255, .85), 0 0 3px rgba(255, 255, 255, .9);
+      transition: left .5s cubic-bezier(.34, 1.56, .64, 1), top .5s cubic-bezier(.34, 1.56, .64, 1),
+        transform .5s cubic-bezier(.34, 1.56, .64, 1), opacity .35s ease, font-size .3s ease; }
+    #hint { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; letter-spacing: .06em; color: #a9a4d0;
+      opacity: 0; transition: opacity .6s; }
+    #hint.on { opacity: .7; }
+    #dev { position: fixed; left: 14px; top: 14px; width: 220px; font: 12px -apple-system, system-ui, sans-serif; color: #8a88a8; }
+    #dev h1 { font-size: 12px; color: #d4d1f0; margin: 0 0 6px; font-weight: 600; }
+    #dev .note { margin: 0 0 10px; line-height: 1.4; }
+    #dev .row { margin: 10px 0 0; line-height: 1.9; }
+    #dev b { color: #d4d1f0; font-weight: 500; }
+    #dev button { font: inherit; color: #c9c6e8; background: #15142a; border: 1px solid #2a2850; border-radius: 6px;
+      padding: 2px 7px; margin: 0 4px 0 0; cursor: pointer; }
+    #dev button.sel { background: #3a3480; border-color: #6a60d0; color: #fff; }
+    #dev .mem { color: #b9b4e0; white-space: pre-wrap; line-height: 1.5; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <!-- The orb page, framed as a 9:16 phone and starting asleep. -->
+  <script>history.replaceState(null, '', '?char=orb&frame=1&awake=0');</script>
+  <script src="avatar.js"></script>
+  <div id="phone"><div id="progress"></div><div id="letters"></div><div id="hint"></div><div id="sub"></div><div id="choices"></div></div>
+  <div id="dev"></div>
+  <script src="onboarding.js"></script>
+</body>
+</html>
