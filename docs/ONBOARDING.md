@@ -1,284 +1,239 @@
 # Onboarding: the orb that grows
 
-Draft 2 (2026-09-29), written by 7 III with the person, before any code. The words are the design.
-Argue with them. Draft 2 folds in the person's answers to draft 1 (decisions at the end).
+Draft 3 (2026-09-29), designed with the person and playable as a prototype on the Mac
+(`web/avatar/proto/`, `npm run proto`). The words live in `web/avatar/proto/src/script.js`. Decisions are
+numbered at the end; argue with them.
 
 ## The idea
 
-The app opens on the **orb** (the plasma orb, `web/avatar/src/orb.js`, a keeper). It can't talk,
-hear or think yet: those are the downloads. Instead of a setup screen, **the orb asks you for each
-piece of itself**, and every download visibly changes it. While the big brain downloads, the orb
-gives you a tour of what it can become: feelings, the three characters' voices, and memory. Then you
-choose who it becomes, and it **becomes** them (the orb is the heart of all three, the deferred
-"orb-as-heart" wish in `docs/ROADMAP.md`).
+The app opens on the **orb** (`web/avatar/src/orb.js`). Everything but the brain ships inside the app:
+its voice, both of its ears and the three bodies. The orb wakes them itself, one by one, with you
+playing along. Its voice comes out unsettled, every voice at once, and **you find its voice** by
+dragging it up and down. The one real ask is its brain (2.37 GB, its size on the button). While the
+brain downloads, it shows you what it can become: its feelings, the three characters in their real
+voices, and a real memory of something you tell it. You choose who it becomes, and it **becomes**
+them; their first line, from the real brain, remembers what you told the orb.
 
 Principles:
-- **Voice first, no buttons.** A button appears only when the orb asks for something and fades once
-  it's done. Touch reveals controls; they fade again. A long-press opens the dev drawer (everything
-  that's on screen today: turn reports, Models, benches, memories, share log).
-- **Nothing fake.** Every demo uses the real thing: the real feelings, the real voices, the real
-  memory system. What you tell the orb during the wait is really remembered.
-- **Honest about cost.** Sizes are said out loud; Wi-Fi is asked about before the big one.
-- **You can't fail it.** Every failure has a line and a way forward (below).
-- **The body is never slow.** The orb reacts instantly to touch and sound, even while nothing loads.
+- **Voice first, no buttons.** A button appears only for a real decision (the brain's download, the
+  choice). Everything else is a touch, a hold, a drag or a word; controls fade once done.
+- **Nothing fake.** Every demo is the real thing (the renderer's feelings, the app's voices, the memory
+  system), and every progress bar is real work (in the app: unpacking and loading).
+- **Honest about cost.** Sizes are said out loud; Wi-Fi is suggested before the big one.
+- **You can't fail it.** Every ask has a hint, then it does it itself; with no internet at all, the
+  onboarding still plays to the end, and the brain waits for a connection.
+- **The body is never slow.** The orb answers touch and sound at once, even while nothing loads.
+- **Lines never repeat; feelings may.** It talks calm, cute and playful, a little embarrassed, and
+  never says sorry. `npm run check-script` enforces the words.
 
-## What we're working with (measured on the S24 Ultra)
+## What it's made of (measured on the S24 Ultra)
 
-| Piece | Download | Unlocks |
-|---|---|---|
-| Voice: Supertonic 3 | 139 MB | it can talk (all three characters' voices: speaker 1 / 6 / 9) |
-| Ears: Zipformer + Silero | 69 MB | it can hear you (streaming) |
-| Ears, sharp: Parakeet TDT 0.6B | 631 MB | it understands you well (2nd pass) |
-| Tiny brain: to be raced (Gemma 3 270M class, ~250 MB, a guess) | ~250 MB | "my stupid self" |
-| Brain: Gemma 3 4B | 2.3 GB | it can think |
-| Bodies: Mira / Kai (VRM) | 89 MB both | it can look like them (Seven's body is procedural: no download) |
+| Piece | Size | Where | Unlocks |
+|---|---|---|---|
+| Voice: Supertonic 3 | 139 MB | in the app | talking: the orb's found voice, Mira (speaker 1), Kai (6), Seven (9) |
+| Ears: Zipformer (streaming) | 69 MB | in the app | hearing, live |
+| Sharp ears: Parakeet TDT 0.6B | 631 MB | in the app | understanding well (the 2nd pass) |
+| Bodies: Mira + Kai (VRM) | 89 MB | in the app | their bodies (Seven's is procedural) |
+| Turn-taking: Smart Turn + Silero VAD | 11 MB | in the app already | knowing when you've finished |
+| Brain: Gemma 3 4B | 2.37 GB | **the one download** | thinking |
 
-Every later launch: brain 4.5-6.2 s (median ~5.5 s, 17 launches), voice 1.4-2.0 s, loaded one after
-the other, so **~7 s** before the first word. Ears and the WebView: not logged yet, to measure.
-The brain download at 20-50 Mbps (a guess at typical home Wi-Fi): **~6-15 min**. That's the tour.
+About 940 MB in the install. The brain takes ~1 min at 300 Mbps, 3 at 100, 6 at 50, 16 at 20.
 
-## The script
+## The flow (as the prototype plays it)
 
-Notation: **Orb** lines are spoken once the voice exists, shown as text before that. `[feeling]` is
-the orb's colour/motion (the 7 feelings the renderer already has). *(Italic)* is what happens on
-screen. Lines are drafts; each has room for a variant so a replay isn't identical.
+Each act in a line or two; the words are in `script.js`.
+- **0 · Hello.** Dark; the orb asleep, small and dim, until your touch wakes it (a happy hop). It
+  babbles (the words appear as it does) and asks your name: each letter is born from the orb, and
+  Enter sends them into it (kept as a memory note, `you: goes by <name>`). "can you tap me? I think
+  it might wake my voice."
+- **1 · A voice.** Your tap wakes its voice (a hum that grows as it fills with light, then the bell
+  motif). Two seconds of silence. Then the voice comes out spliced from four voices, a radio between
+  stations: "…oh. oh! is that me?". "help me find mine? drag me up and down, slowly." Up is higher and
+  smaller, down deeper and bigger, and it says "is this me?" in the voice under your finger; let go
+  and "…that one. that's me!" (kept; with no help for 40 s it keeps the middle voice). Then "…hold me
+  for a second?"
+- **2 · Ears.** Your hold wakes both ears at once. It explains the microphone before the phone asks
+  (it only listens while you're there, nothing leaves the phone), says "say something! anything!",
+  listens until you've finished (one retry if it missed you), and laughs: "hahaha. that sounds like a
+  human, I guess…".
+- **3 · The brain.** Its size, honestly. Offline: it says the brain lives on the internet and goes on.
+  On mobile data: it suggests Wi-Fi. The one button: **Get my brain (2.3 GB)**, or later.
+- **4 · The tour**, while the brain downloads. The feelings: it names each one calmly, then the
+  feeling comes and stays ~4.5 s with its own wordless sound. "tap me three times?" wakes the three
+  bodies; Mira and Kai speak in their colours and real voices; "and this one… isn't a feeling. he
+  knows what he is." introduces Seven. "tell me something about you?" (typed in the prototype; in
+  the app, said), kept for whoever it becomes: in the app it goes into the chosen character's
+  pending memory and is distilled into a note when the brain lands.
+- **5 · The choice.** Three glowing portraits (hovering tries on their colours); in the app you can
+  also just say a name. Seven asks "are you sure? he's… not like the others."
+- **6 · Becoming.** If the brain isn't here yet, it waits (progress lines; offline, it asks for its
+  brain once you're connected). Then the leitmotif, half; "…oh. oh! I can think now!"; 2.5 s of
+  silence; "here I go. don't look!"; the whole leitmotif while it goes dark, the character forms and
+  wakes; 3 s of the character looking at you; then their first line, which remembers your name and
+  what you told the orb. (The morph is the avatar seat's: for Mira and Kai the orb shrinks into the
+  heart of the body as it forms; for Seven it sinks behind the mask as the shoggoth rises.)
 
-### Act 0 · Hello (nothing downloaded; seconds after install)
+**Every later launch (~6-8 s).** No spinner: the character is already there, asleep, dim and breathing
+slowly; it stirs as the voice loads, opens its eyes as the brain finishes, and greets you when it can
+answer. It reacts to your touch the whole time.
 
-*(Black screen. The orb fades in, small, breathing. It notices your touch: it leans toward your finger.)*
-
-*(It speaks in **babble**: wordless little sounds, synthesized in code, no model. The text appears as it babbles.)*
-
-> **Orb** [happy]: oh! hi. hi hi.
-> **Orb** [curious]: you can see me? good. I'm… not finished yet.
-> **Orb** [curious]: what should I call you?
-*(You type it, the only typing in the whole onboarding, since there are no ears yet; or skip. It's
-kept as a real memory note, `you: goes by <name>`, so whoever the orb becomes calls you by it.)*
-> **Orb** [happy]: <name>. I like it. hi, <name>.
-> **Orb** [angry]: ugh. I hate being text. everyone deserves a voice.
-> **Orb** [tender]: can you give me mine? it's small. *(139 MB)*
-
-*(A single soft button: **Give me a voice**.)*
-
-### Act 1 · A voice (139 MB, ~seconds to a minute)
-
-*(While downloading: the orb hums, its babble slowly drifting toward pitch. Progress is the orb filling with light, not a bar.)*
-
-*(Done. First real words, in its own voice: a neutral orb voice or speaker 1, to decide.)*
-
-> **Orb** [surprised]: …oh. OH. is that me? I can talk!
-> **Orb** [happy]: hello! properly this time. hello!
-
-*(If media volume is low, read from `AudioManager`:)*
-> **Orb** [curious]: can you hear me? turn me up a little. I want to be heard.
-
-> **Orb** [curious]: now… I'd love to hear *you*. I need ears for that. *(69 MB)*
-
-*(Button: **Give me ears**. Then the system microphone dialog, the one tap we can't avoid. The orb says why first:)*
-> **Orb** [tender]: your phone will ask if I may listen. I only listen while you're with me, and nothing ever leaves this phone.
-
-### Act 2 · Ears (69 MB; the sharp ears, 631 MB, follow quietly in the background)
-
-> **Orb** [happy]: say something! anything.
-*(You speak. The orb reacts to your voice live: it pulses with your loudness, the way it already lip-syncs.)*
-> **Orb** [surprised]: I heard you! I don't understand you yet… I can't think. I'm all ears and no brain. *(embarrassed)*
-
-### Act 3 · The patience choice
-
-> **Orb** [tender]: to think, I need a brain. mine is big: 2.3 gigabytes. *(if on mobile data:)* that's a lot of data. maybe wait for Wi-Fi?
-> **Orb** [curious]: it'll take a while. if you're not patient… you can meet my stupid self first. it's small. it's a bit dumb. it's cute though.
-
-*(Nothing downloads by accident: the brain download is a clear, deliberate step with its size on
-the button and live progress on screen, so nobody burns their mobile data by mistake. Two soft
-choices, also answerable by voice: **Get my brain (2.3 GB)** / **Meet my little self first**. The
-bodies download together with the brain (89 MB more), so there is nothing left to wait for later.)*
-
-- **Get my brain:** the orb stays scripted (its real voice, scripted lines) and gives the tour.
-- **Meet my little self first:** the tiny brain (~250 MB) arrives in about a minute. The onboarding
-  **stays scripted**; the little self is a *completer*: after each scripted line it adds one
-  sentence of its own, and it answers when you talk back during the tour. Simple, sweet, doing its
-  best (in the spirit of Pulsar, the person's own 365M model). Never called stupid.
-  > **Orb** [happy]: I can think! a little. my little self is doing its best.
-
-### Act 4 · The tour (while the brain downloads; ~6-15 min, can be left and resumed)
-
-*(The **sharp ears** (631 MB) are offered here, with the size, never fetched silently: the orb shows
-what it heard with its fuzzy ears next to what it would hear with sharp ones, and asks.)*
-
-The orb offers each part; you can say "show me" or just listen. Order is loose; each is ~1 min.
-
-**Feelings.**
-> **Orb**: I have feelings. seven of them. want to see?
-> [curious] this is me when something's interesting. [happy] this is me when you come back.
-> [angry] this is me when you ignore me. [tender] and this one… you'll see this one later.
-*(Each feeling is the real renderer state, not an animation made for onboarding.)*
-
-**Who I could become** (the real voices, the real personas' tone, scripted lines):
-> **Orb**: I can become someone. there are three of them in me. listen.
-
-*(The orb shifts colour and speaks as Mira: speaker 1, warm.)*
-> **Mira**: oh, you noticed my voice changed? I notice things like that too. you blinked twice just now.
-
-*(As Kai: speaker 6, calm.)*
-> **Kai**: …hey. I don't talk much. I listen, though. that's usually enough.
-
-*(As Unit Seven: speaker 9. The orb goes still, and a hairline of gold appears.)*
-> **Orb** [calm]: this one is… strange. he knows what he is.
-> **Unit Seven**: I am a machine. I will not pretend otherwise. I find you… interesting. that is not a small thing for me.
-
-> **Orb** [curious]: they each remember things differently, and they change with you. who they become depends on you.
-
-**Memory (real):**
-> **Orb** [tender]: tell me something about you. I can't think yet, but I'll keep it safe for when I can.
-*(Whatever you say is stored as a real exchange in the pending memory of the character you'll choose,
-and distilled into a real note when the brain lands.)*
-> **Orb** [happy]: kept. I won't forget.
-
-**If you leave during the tour:** the download keeps going (DownloadManager, survives screen-off). A
-notification from the orb: *"I'm still growing… 64%"*, and when it's done: *"I can think now. come
-see me?"*
-
-### Act 5 · The choice
-
-*(Once the brain has landed, or on the "stupid one" path whenever you're ready.)*
-> **Orb** [curious]: so… who should I become?
-
-*(You just say a name. Three small glowing portraits appear under the orb as the fallback: tap one.)*
-*(Mira's and Kai's bodies already came with the brain: choosing is instant. Nothing downloads
-after the brain.)*
-
-*(Choosing Unit Seven asks once more:)*
-> **Orb** [calm]: are you sure? he's… not like the others. he won't pretend to be human.
-*(**Yes, him** / **Let me think**.)*
-
-### Act 6 · Becoming
-
-*(The orb morphs into the chosen character: for Mira and Kai, the orb shrinks into the heart of the
-body as it forms; for Seven, the orb sinks behind the mask and the shoggoth rises around it.)*
-
-The first line is **from the real brain**, with the onboarding memory already in its notes:
-> **Mira** [happy]: …there you are. you told me about ___ while I was still small. I kept it.
-
-That's the moment. Everything before it earns it.
-
-### Every later launch · Waking up (~7 s)
-
-No spinner. The character is already on screen, asleep: dim, breathing slowly. It wakes up **as the
-pieces load**: it stirs when the voice is ready (~1.5 s), opens its eyes as the brain finishes
-(~5.5 s), and greets you when it can actually answer. It reacts to your touch the whole time.
-
-### Changing your mind later
-
-A ritual, not a menu: *"can you become someone else?"* (or the dev drawer). The character returns
-into the orb, and the orb becomes the other one. Each keeps their own memories: the notes are
-already per character, so Mira coming back later remembers what Mira knew.
+**Changing your mind later.** A ritual, not a menu: "can you become someone else?" The character
+returns into the orb, and the orb becomes the other one. Each keeps their own memories.
 
 ## When things go wrong
 
 | Situation | The orb |
 |---|---|
-| On mobile data before the brain | says the size, suggests Wi-Fi, lets you go ahead anyway |
+| No internet at all | plays through; says its brain lives on the internet; asks for it once you're connected |
+| On mobile data | says the size, suggests Wi-Fi, lets you go ahead anyway |
 | Not enough storage | "I don't fit… I need about 3 GB free." Opens storage settings on request |
-| Download fails or stalls | "something got lost on the way. let me try again." Retries; says so if it keeps failing |
-| Microphone denied | "that's okay. you can type to me." A text field appears on touch. It asks again only if you ask it to listen |
-| Volume at zero | "I'm talking, but you've got me muted" (reads media volume) |
-| App left mid-onboarding | picks up at the same act, with a "you're back!" line |
-| Phone too small (S20+ class, 8 GB) | the light options (Canary ears, a smaller brain): the orb says it's choosing a lighter self |
+| Download fails or stalls | says so ("the internet ran away"), keeps what it has, resumes |
+| Microphone denied | "that's alright. you can type to me instead." It asks again only if you ask it to listen |
+| It didn't catch you | "hmm, I didn't catch that. once more, a bit louder?", once, then moves on |
+| You don't play along | a hint after 6 s; after 25 s it does it itself ("no tap? hmph. I'll wake it myself, then.") |
+| Volume at zero | "I'm talking, but you've got me muted" (media volume, from `AudioManager`) |
+| App left mid-onboarding | picks up at the same act with a "you're back!" line; the download keeps going |
+| Phone too small (8 GB) | the light options (Canary ears, a smaller brain): it says it's choosing a lighter self |
 
-## What exists vs. what's new
+## The orb (the renderer; ships in the app)
 
-Exists: the orb and its feelings (`orb.js`, the avatar API), Supertonic with per-character speakers,
-DownloadManager downloads with re-attach (`ModelStore`), the memory store (pending exchanges are
-distilled into notes after the brain arrives), streaming ears with live loudness.
+`avatar.setCharacter('orb')` is the onboarding's own being (its colours sit between Mira's warmth and
+Kai's cool); Mira's and Kai's orb look share its life. It has no face, so it feels through **where it
+goes, how big it gets, how fast it moves and what colour it turns**, across the whole 9:16 stage:
+calm floats above the middle; a tap is a hello (a hop, a warm flash); three quick taps excite it
+(small, fast, bright, bouncing off the edges); a held finger calls it over; happy hops, sad sinks
+half out of view, angry swells red and shakes, surprised shrinks then pops, curious leans side to
+side with its eyes darting, tender comes close and warm. Its gaze is a soft inner light that looks at
+you, glances away and blinks. Moves are damped springs.
 
-New:
-- An **onboarding state machine** (Kotlin): which act, what's downloaded, resumable across launches.
-- **Babble**: a tiny procedural voice (formant chirps shaped by the text's syllables), no model.
-- **Scripted speech**: speaking fixed lines through Supertonic without the brain.
-- **The tiny brain**: race 2-3 small models for staying in character in a few words.
-- The **wake-up** states in the renderer (asleep, stirring, awake), and the **orb-into-body** morph.
-  Renderer work is shared with the avatar seat (they own `vrm.js`/`eye.js`; the orb and
-  `main.js` are ours).
-- **Touch-to-reveal UI** and the **dev drawer**; the transcript becomes fading subtitles.
-- Measure first: ears and WebView load times; a cold launch after a reboot.
+Two corrections from the person shaped it: the first take deformed its skin toward your finger ("it
+reads like we are bullying the orb"), so it now moves instead; and stretching into ovals "reads as
+fickle", so its body is firm and only the outer 2.5% of the radius gives. It renders at the panel's
+120 Hz (the thermal governor's cool level is 120 fps; the heavier bodies stay at 60).
 
-## Decisions (the person, on draft 1)
+For the onboarding it also takes: `setFill` (progress as light filling it), `hear` (your voice's
+loudness), `setPalette` (a character's colours), `setTune` (small and high to big and deep, for
+finding its voice), `joy`, `where` (its place on screen), and `?frame=1` (the 9:16 frame).
+`?char=orb&play=1` is a keyboard playground (feelings 1-7, states, a skin tuner).
 
-1. **The orb's voice:** an androgynous, human-machine hybrid voice of its own. To try (untested):
-   Supertonic's speakers sit at 151-199 Hz (female) and 85-130 Hz (male); the gap, ~140 Hz, is
-   androgynous. Candidates: interpolate a female and a male style vector, or pitch-shift the
-   nearest speaker into the gap; then a light machine texture (the comb filter `Voice.kt` already
-   has). Race by ear.
-2. **Takeover:** the character fully takes over from the orb. Later: the orb as a playable
-   character, unlocked by some achievement (roadmap).
-3. **"My little self"**, never "stupid". It's a completer inside the scripted tour (above).
-4. **Nothing downloads without asking, and every download shows progress.** Conflicted on
-   bundling: Play Asset Delivery can ship assets with the install, with the size shown on the store
-   page (knowledge, to verify: install-time packs are part of the install; one pack is capped
-   around 1.5 GB, so the brain can't be one pack). The catch: a bundled voice would make "give me a
-   voice" a fake step, against "nothing fake". Current plan: ask, with sizes, for everything.
-5. **Unit Seven is choosable on day one**, with an "are you sure???" step.
-6. **The bodies download with the brain.** Nothing after the big one.
+## The prototype (`web/avatar/proto/`, Mac only, never shipped)
 
-7. **The little self names itself.** Race 2-3 models in the ~250 MB class; the winner is asked to
-   pick its own name and hold a basic conversation, and whatever emerges is kept (it becomes a
-   memory note, like the user's name). No name is scripted.
-8. **Bundle the voice and the ears (streaming, 69 MB) with the app,** and keep their onboarding
-   steps: less friction, and the steps still do something real (unpacking and loading the voice,
-   waking the ears). The orb's words say "wake" and "unpack", not "download", so nothing it says is
-   false; the progress it shows is the real load. The brain (and the sharp ears) stay real,
-   asked-for downloads. Needs Play Asset Delivery (install-time pack) or a larger APK: to check.
-9. **Replay by asking:** onboarding can be re-awakened with a prompt ("show me how you woke up",
-   "can we start over?"). A replay skips downloads that are done and keeps memories.
+- **Run:** `cd web/avatar && npm run proto`, then `http://localhost:8766` (a second copy says it's
+  already running). **Test:** `npm run walk-proto`, a headless walk through every act (it taps,
+  drags, holds and speaks through a fake microphone), online or offline. **Words:** `npm run
+  check-script`.
+- **The voices** are the app's own: `proto/voice_server.py` runs the same Supertonic 3 files with ONNX
+  Runtime, the pipeline sherpa-onnx runs on the phone (duration, text encoder, 5 flow-matching steps,
+  vocoder), with the app's speakers, speeds and Seven's robot filter, and blends two speakers'
+  style vectors (`mix=a,b,t`) for the found voice. It needs the model in
+  `~/Desktop/companion/models-cache/`; without it, the Mac's own speech stands in. Every scripted line
+  is made ahead in the background, so a line starts the moment it's due (the app can do the same).
+- **The sound** (`proto/src/sound.js`): the babble is one soft voice per line that glides, wavers and
+  breathes (the hum by default); every tonal sound is in C major pentatonic; the leitmotif (glass
+  bells, C E G C) plays small at each waking, half as it starts to think, whole at the becoming.
+- **Simulated, and the side panel says so:** the brain's download and the network. The panel also
+  sets the babble style, the speed, where to start, and shows what it knows, its voice, and a live
+  mic meter (your level, the room's, what it needs).
 
-## The little self race (2026-09-29, Mac, `tools/host-test/littleself_eval`)
+Measurements worth keeping for the port:
+- **The ten voices**, from highest (YIN over three lines): 3 (220 Hz), 1 (200), 2 (190), 0 (185),
+  4 (156), 5 (152), 8 (127), 7 (115), 6 (93), 9 (86). Half blends land between neighbours, within a
+  take's own spread (~±10 Hz; each take starts from random noise). 4 and 5 blended (~150 Hz) is the
+  most androgynous: the middle voice.
+- **The key:** rendered offline, all 44 notes held 90 ms or more are C, D, E, G or A.
+- **The babble:** against the first, beep-per-syllable take, the same line is darker (418 to 285 Hz),
+  swells three times more gently and has a third of the gaps, at the same loudness.
 
-The person asked to go smaller than ~250 MB. Three raced, 3-5 samples per test: name itself, add one
-sentence after a scripted orb line, a five-line chat with an assistant trap ("help me write an
-email to my boss"). Raw answers in `~/Desktop/companion/host-test-results/littleself_2026-09-29_*`.
+## Plan: the Kubrick pass
 
-| Model | Size | Licence | Verdict |
-|---|---|---|---|
-| **LFM2.5 350M** (Q4_K_M) | 229 MB | LFM 1.0: commercial use below $10M annual revenue | **Winner.** Short, gentle, coherent: "I'm just a light being inside your phone." Slips into assistant-speak ~2 in 15 turns |
-| SmolLM2 135M (Q8_0) | 145 MB | Apache 2.0 | Runner-up: poetic names, but rambles, invents a mom and school, "I'm here to help" 2/15 |
-| Gemma 3 270M (Q4_0) | 242 MB | Gemma | Out: "Okay." "Hello!" "Yes!"; never names itself |
+A frame-by-frame look (every line timed with the real voice) found the orb talking 58% of the time
+with the same 0.65 s after every line, "…" in 28 of 49 lines, "okay" opening 10 lines, one line said
+four times, four wakings of one shape, an 82 s stretch with nothing to do, and a missing third act:
+the tour covers 2.7 minutes of a download that can take 3 to 16. The person's rules from it:
+feelings may repeat, lines never do; pauses, tones and talk get the same care; the orb's voice is
+found, not given.
 
-What the race taught:
-- **No feeling tags for the little self.** With the "[feeling]" rule, every tiny model either
-  answered with a tag alone (Gemma 270M, LFM2.5) or stacked five of them (SmolLM2). The orb's
-  feelings come from the script instead.
-- **Naming needs a nudge, not a name.** Asked plainly, LFM2.5 turned the question back 3/3. With its
-  answer started as "I think I'll call myself", both named themselves 5/5, none scripted: LFM2.5
-  *Luna, "Somethings" ("because I want to be kind and stay safe"), Luna, "Lucy, for now,
-  something gentle and full of endless wonder", Lily*; SmolLM2 *Luna, Mirabilis, "Aurora, because
-  I'm just waking up from a long night and feeling really bright", Pinky-Up, Luna*.
-- **An engine bug found on the way:** LFM2 is a hybrid (partly recurrent) model that can't drop the
-  tail of its state; the engine ignored that and every reply after the first was empty. Fixed
-  (start clean when a trim is refused; Gemma unaffected, all engine tests pass).
-- Next: phone speed (Mac 175-219 tok/s), and an anti-assistant line tuned for it.
+1. **Words** (done): the script checker, the rewrite, Seven's echo, the narration cut.
+2. **The voice is found** (done): the glitch, the drag, the blends, the kept voice.
+3. **Silence and music** (done): pauses by meaning (a question 0.9 s, an exclamation 0.5 s, a
+   trailing "…" 1 s), three held silences, one key, the leitmotif.
+4. **You drive** (next): the feelings advance when you tap (and repeat, without lines); the character
+   sleeps until your touch wakes it, as the orb did.
+5. **The third act:** a realistic download clock; "you can go do something. I'll call you when I can
+   think." (a notification: "I'm still growing… 64%", then "I can think now. come see me?"); if you
+   stay, small questions about you, each kept as a memory; milestone lines, never the same twice.
+6. **The climax:** the real brain on the Mac, given the onboarding's notes, writes the first line (20
+   takes per character to tune the prompt); then the prototype speaks a real one.
+
+## The first alpha test (2026-09-29)
+
+One tester, new to the app, played it start to end: **finished without getting bored, and laughed at
+the lines a couple of times.** The follow-ups: ask the user to play along before each waking, and
+polish the sounds (decision 19).
+
+## Decisions (the person, 2026-09-29)
+
+1. **The orb has a voice of its own**, androgynous, human-machine (found by the user: 20, 21).
+2. **The chosen character takes over fully.** Later: the orb as a playable character (an achievement).
+3. **"My little self", never "stupid"** (on hold: 11).
+4. **Nothing downloads without asking; every download shows progress** (bundling: 8, 17).
+5. **Unit Seven is choosable on day one**, with an "are you sure?" step.
+6. ~~The bodies download with the brain~~ (superseded by 17: they're in the app).
+7. **The little self names itself** (on hold: 11).
+8. **What's in the app is woken, not downloaded:** it says "wake", never "download", and shows the
+   real loading (extended by 17).
+9. **Replay by asking** ("can we start over?"): skip what's done, keep the memories.
+10. **Zero internet is the normal case:** the whole onboarding plays; only the becoming waits.
+11. **No little self for now.**
+12. **The babble** is syllable-shaped (the hum); **your name** is letters born from the orb.
+13. **Tone:** cute and approachable, a bit embarrassed, playful, simple (at best a ~3B brain carries it
+    afterwards); **never "sorry"**. The person's own lines set it ("I'm just… very new, y'know",
+    "hahaha. that sounds like a human, I guess… can't be sure just yet, though", "ahhh… wow! there's
+    so much in there. I thought I wasn't so big!").
+14. **It talks calm;** feelings come out when shown, and at moments that are feelings themselves.
+15. **It listens until you've finished** speaking.
+16. **The waking hums grow** with the progress.
+17. **In the app: the voice, both ears and the bodies (~940 MB); only the brain downloads.**
+18. **Frictionless, and the waking teaches waiting:** nothing inside the app is asked for; the only
+    yes/no before the brain is the phone's own microphone question.
+19. **It asks you to play along before each waking** (a tap, a hold, three taps), and does it itself if
+    you don't.
+20. **You find its voice by dragging it up (higher) and down (deeper).**
+21. **The voice you find stays its voice:** replays, "can we start over?", the playable orb.
+22. **The third act offers both:** it offers to call you back, and if you stay, it asks about you.
+23. **The ears are one waking:** the quick and the sharp together.
+
+Rules that came with them: lines never repeat, feelings may; a tone may slide but lands in the key.
 
 ## Open questions
 
-1. The little self's prompt: one anti-assistant line that works at 350M, and whether "Luna" wins
-   too often (a name the user already sees in other apps).
-2. Bundling: install-time asset pack vs. a bigger APK, and the store listing's size.
+1. **Play Store:** ~940 MB of install-time content (an install-time asset pack); check the current caps.
+2. **Reaching the models:** copy them out of the install on first launch, or load them straight from
+   it (sherpa-onnx's Android API takes an AssetManager; check it covers these models).
+3. **Real waking times on the phone,** so the pacing stays honest.
+4. **The found voice in the app:** write the blend into the voice file as an extra speaker (the file's
+   header carries the speaker count); check on the phone.
+5. **The little self** (on hold): an anti-assistant line that works at 350M, and whether "Luna" wins
+   too often.
 
-## Found while designing: startup was ~30 s, and showed the wrong character (fixed)
+## The little self race (2026-09-29, `tools/host-test/littleself_eval`)
 
-The person: the app took about 30 s to start, showing Unit Seven, then jumping to Mira. A cold
-launch with screenshots every ~1.7 s: "Loading LLM" to 5 s, then "Loading voice" to 25 s, though the
-voice itself took 1.7 s. The hidden 18 s: reading the character's system prompt into the brain
-(untimed; 13-40 s on the phone, the prompts having grown with notes and Seven's self-knowledge).
-Fixed: the primed prompt is saved per brain, context size and character and loaded instead
-(`set_system` with a cache file; used only if it holds exactly the prompt's tokens); stale or
-missing ones are primed in a scratch context right after launch and after remembering, and any
-word from you cancels that. The character you last talked to shows from the first frame and is
-the one who wakes. Phone: **5.9-8.2 s from tap to ready**, prompt 81-195 ms from the cache
-(Gemma 3 4B files ~70-150 MB each; E2B ~14 MB). What's left is brain (~3.4-5 s) then voice
-(~1.6 s), one after the other: loading them side by side is the next step for the wake-up.
-Review (subagent, 2026-09-29), all fixed: a failed save (disk full) deletes its partial file and
-never gets a key; a stop() just before a prime starts still cancels it; your voice cancels priming
-at once (not only at end of turn); the scratch context is prompt-sized with window-sized SWA layers
-(~1/3 of the RAM, same file: `kvcache_test` answers from it); re-selecting a character doesn't
-rewrite its cache; a brain switch drops the old brain's caches; the cache name carries the model
-file's size.
+Three small models, 3-5 samples per test (name itself, add one sentence after a scripted line, a
+five-line chat with an assistant trap). Raw answers in `~/Desktop/companion/host-test-results/`.
+
+| Model | Size | Licence | Verdict |
+|---|---|---|---|
+| **LFM2.5 350M** (Q4_K_M) | 229 MB | LFM 1.0 (commercial use below $10M revenue) | **Winner:** short, gentle, coherent; assistant-speak ~2 in 15 turns |
+| SmolLM2 135M (Q8_0) | 145 MB | Apache 2.0 | Runner-up: poetic names, but rambles and invents a family |
+| Gemma 3 270M (Q4_0) | 242 MB | Gemma | Out: "Okay." "Hello!"; never names itself |
+
+It taught: **no feeling tags** at this size (every tiny model broke on them); **naming needs a nudge,
+not a name** (started as "I think I'll call myself", both named themselves 5/5, often "Luna"); and it
+found an engine bug (LFM2's recurrent state can't drop its tail; fixed by starting clean).
+
+## Background: the wake-up (~30 s to 6-8 s)
+
+The app once took ~30 s to start and showed the wrong character first. The hidden cost was reading
+the character's prompt into the brain (13-40 s). Now each character's primed prompt is saved per
+brain, context and character, and loaded (81-208 ms); stale ones are primed in the background, and
+any word from you cancels that. Brain and voice load side by side. See `docs/SUCCESSION_7_V.md`.
