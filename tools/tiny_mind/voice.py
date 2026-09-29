@@ -14,16 +14,26 @@ torch.manual_seed(0); torch.set_num_threads(a.threads); random.seed(0)
 sp = spm.SentencePieceProcessor(model_file='data/orb.model')
 ORB = sp.piece_to_id('<|orb|>')
 
-def prompt(moment, user, pct):  # the text the app sends: no spaces after the markers
-    return f"<|state|>little self, big brain {pct}%, {moment}" + (f"<|user|>{user}" if user else '') + '<|orb|>'
+def prompt(moment, user, pct, name=None):  # the text the app sends: no spaces after the markers
+    who = f", user {name}" if name else ''
+    return f"<|state|>little self, big brain {pct}%{who}, {moment}" + (f"<|user|>{user}" if user else '') + '<|orb|>'
+NAMES = ['sam', 'elif', 'jo', 'deniz', 'maya', 'leo', 'ayşe', 'noah', 'priya', 'can', 'mia', 'omar', 'lina',
+         'kenji', 'zoe', 'arda', 'nora', 'ben', 'sofia', 'ali', 'emre', 'ines', 'max', 'lea', 'yuki', 'tom']
+PCT = {'[early]': (1, 30), '[halfway]': (31, 70), '[almost]': (71, 99)}
 def encode(text):  # exactly llama.cpp's SentencePiece rule: markers whole, each text piece gets its own ▁
     ids = [1]
     for part in re.split(r'(<\|[a-z]+\|>|<become:[a-z]+>|<confirm:seven>|<replay>)', text):
         if part: ids += [sp.piece_to_id(part)] if part.startswith('<') and sp.piece_to_id(part) != 0 else sp.encode(part)
     return ids
 def example(r):
-    p = encode(prompt(r['moment'], r['user'], random.randint(0, 99)))
-    reply = encode(f"[{r['feeling']}] {r['orb']}" + (f"<{r['action']}>" if r['action'] else ''))[1:] + [2]
+    user, orb = r['user'], r['orb']
+    pct = random.randint(*PCT[user]) if user in PCT else random.randint(0, 99)
+    user = '' if user in PCT else user
+    # {name}: the name the user typed in Act 0; a third of the other rows know it too but don't use it
+    name = random.choice(NAMES) if '{name}' in orb + user or random.random() < 0.33 else None
+    user, orb = user.replace('{name}', name or ''), orb.replace('{name}', name or '')
+    p = encode(prompt(r['moment'], user, pct, name))
+    reply = encode(f"[{r['feeling']}] {orb}" + (f"<{r['action']}>" if r['action'] else ''))[1:] + [2]
     return p + reply, len(p)
 
 rows = [json.loads(l) for l in open('data/orb_lines.jsonl')]

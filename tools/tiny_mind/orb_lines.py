@@ -5,6 +5,7 @@ MOMENTS = {'chat', 'tour', 'self', 'touch', 'idle', 'return', 'become'}
 FEELINGS = {'calm', 'happy', 'sad', 'angry', 'surprised', 'curious', 'tender'}
 ACTIONS = {'', 'become:mira', 'become:kai', 'confirm:seven', 'replay'}
 NEEDS_USER = {'chat', 'touch', 'idle', 'return', 'become'}
+PROGRESS = {'[early]', '[halfway]', '[almost]'}  # optional `user says` for tour rows
 BANNED = ['how can i help', 'as an ai', 'here to assist', 'great question', 'cosmic', 'stardust',
           'universe', 'vibes', 'ethereal', 'journey', 'embrace', 'language model', 'tiny model', '#']
 EMOJI = re.compile('[\U0001F300-\U0001FAFF☀-➿️]')
@@ -26,7 +27,9 @@ def check(c, seen, near):
     if feeling not in FEELINGS: return f'feeling "{feeling}"'
     if action not in ACTIONS: return f'action "{action}"'
     if (moment == 'become') != (action != ''): return 'action/moment mismatch'
-    if (moment in NEEDS_USER) != bool(user): return 'user says missing' if moment in NEEDS_USER else 'user says should be empty'
+    if moment == 'tour' and user.lower() in PROGRESS: user = user.lower()  # how far the big brain is
+    elif (moment in NEEDS_USER) != bool(user): return 'user says missing' if moment in NEEDS_USER else 'user says should be empty'
+    if re.search(r'\{(?!name\})[^}]*\}', orb + user): return 'unknown {placeholder}'
     if len(SPLIT.split(orb)) > 1: return 'more than one sentence'
     if not re.search(r'[.!?…]$', orb): return 'no end punctuation'
     words = len(orb.split())
