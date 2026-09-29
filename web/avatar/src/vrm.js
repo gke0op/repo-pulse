@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { ProceduralEye } from './eye.js';
 import { HairLibrary } from './hair.js';
+import { Wardrobe } from './wardrobe.js';
 
 const MODELS = { girl: 'models/mira.vrm', boy: 'models/kai.vrm' };
 // Emotion A/B (avatar.setProfile): A = subtle, capped where VRoid shapes start fighting
@@ -80,6 +81,7 @@ export class VrmAvatar {
     this.eye = new ProceduralEye(vrm, this.id);   // models with an eye rig get the procedural eye
     this.hair = new HairLibrary(vrm, this.id);              // models with a hair library: own style by default
     if (this.hair.ok) this.hair.setStyle('O');
+    this.wardrobe = new Wardrobe(vrm);
     for (const [fn, args] of this.pendingHair || []) this[fn](...args);
 
     this.mtoon = [];
@@ -198,6 +200,10 @@ export class VrmAvatar {
   setHair(x) {
     if (!this.hair) { (this.pendingHair ||= []).push(['setHair', [x]]); return; }
     if (typeof x === 'string') this.hair.setStyle(x); else this.hair.setLook(x);
+  }
+  setOutfit(id) {
+    if (!this.wardrobe) { (this.pendingHair ||= []).push(['setOutfit', [id]]); return Promise.resolve(); }
+    return this.wardrobe.set(id);
   }
   setHairColor(part, hex, amount) {
     if (!this.hair) { (this.pendingHair ||= []).push(['setHairColor', [part, hex, amount]]); return; }

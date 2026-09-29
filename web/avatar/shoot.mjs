@@ -10,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // Served over http like the app does (fetch() can't read file:// URLs, and VRM models are fetched).
 const assets = path.resolve(here, '../../app/src/main/assets');
 const humans = path.resolve(here, '../../models/avatar');
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.vrm': 'model/gltf-binary' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.vrm': 'model/gltf-binary', '.glb': 'model/gltf-binary' };
 const server = http.createServer((req, res) => {
   const u = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   // The app serves the downloaded humans from its storage; here they come from models/avatar.

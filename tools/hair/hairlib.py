@@ -242,6 +242,25 @@ if body:
             bmesh.ops.delete(b2, geom=[f for f in b2.faces if (f.material_index in capi) != keep], context='FACES')
             b2.to_mesh(ob.data); b2.free()
         log('cap split', sum(len(p.vertices) - 2 for p in cap.data.polygons), 'tris')
+    # ---- wardrobe: her own outfit (everything below a cut just under the chin, the same cut outfit.py uses)
+    #      becomes the removable mesh "Outfit_O"; the body keeps only head skin (ears, skull under the hair)
+    CHIN = min((face.matrix_world @ v.co).z for v in face.data.vertices)
+    CUT = CHIN + 0.012
+    BMw = body.matrix_world
+    hg = {g.index for g in body.vertex_groups if g.name == head or g.name.startswith(('J_Adj_L_FaceEye', 'J_Adj_R_FaceEye'))}
+    def head_part(f, dl):
+        wh = wt = 0.0
+        for v in f.verts:
+            for k, w in v[dl].items():
+                wt += w; wh += w if k in hg else 0.0
+        return wt > 0 and wh / wt > 0.5 and (BMw @ f.calc_center_median()).z > CUT
+    of = body.copy(); of.data = body.data.copy(); bpy.context.scene.collection.objects.link(of)
+    of.name = 'Outfit_O'; of.data.name = 'Outfit_O'
+    for ob, keep_head in ((of, False), (body, True)):
+        b2 = bmesh.new(); b2.from_mesh(ob.data); b2.faces.ensure_lookup_table(); dl = b2.verts.layers.deform.active
+        bmesh.ops.delete(b2, geom=[f for f in b2.faces if head_part(f, dl) != keep_head], context='FACES')
+        b2.to_mesh(ob.data); b2.free()
+    log('wardrobe split', 'head skin', sum(len(p.vertices) - 2 for p in body.data.polygons), 'outfit O', sum(len(p.vertices) - 2 for p in of.data.polygons))
 
 # ---- default look: the character's own hair visible, everything else hidden (the app decides at runtime)
 # (VRM has no per-mesh visibility; the app hides parts by name. Keep all visible in the file.)
