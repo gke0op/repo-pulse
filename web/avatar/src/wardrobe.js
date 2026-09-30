@@ -17,7 +17,7 @@ export class Wardrobe {
     this.skinTemplate = null;
     vrm.scene.traverse(o => { if (o.isMesh) [].concat(o.material).forEach(m => { if (!this.skinTemplate && /Body_00_SKIN/.test(m.name)) this.skinTemplate = m; }); });
     this.bindRef = null; this.own.forEach(o => o.traverse(x => { if (!this.bindRef && x.isSkinnedMesh) this.bindRef = x; }));
-    this.cache = new Map(); this.dressed = []; this.current = 'O'; this.ok = this.own.length > 0;
+    this.cache = new Map(); this.worn = new Set(); this.dressed = []; this.current = 'O'; this.ok = this.own.length > 0;
     globalThis.__wardrobe = this; globalThis.__THREE = THREE;   // debug/tuning handles
   }
 
@@ -28,8 +28,15 @@ export class Wardrobe {
     const pack = want === 'O' ? null : await this.load(want);
     if (this.wanted !== want) return;                        // a later call won
     this.own.forEach(o => { o.visible = !pack; });
-    for (const [k, g] of this.cache) if (g.root) g.root.visible = (k === want);
+    for (const [k, g] of this.cache) if (g.root && !this.worn.has(k) && !g.accessory) g.root.visible = (k === want);
     this.current = want;
+  }
+
+  // Accessories (e.g. 'scarf') are worn over any outfit, on or off independently.
+  async wear(id, on = true) {
+    if (!this.ok) return;
+    const root = await this.load(id); this.cache.get(id).accessory = true;
+    root.visible = !!on; if (on) this.worn.add(id); else this.worn.delete(id);
   }
 
   // Download (or reuse) a pack; returns its root group, already bound to her skeleton.
@@ -81,7 +88,7 @@ export class Wardrobe {
       tx.magFilter = THREE.LinearFilter; tx.minFilter = THREE.LinearMipmapLinearFilter; tx.generateMipmaps = true; tx.needsUpdate = true;
     }
     if (map) map.colorSpace = THREE.SRGBColorSpace;
-    const m = new MToonMaterial({ map, shadeMultiplyTexture: map, transparent: !!src.transparent, side: src.side ?? THREE.FrontSide });
+    const m = new MToonMaterial({ map, shadeMultiplyTexture: map, transparent: !!src.transparent, side: src.side ?? THREE.FrontSide });   // glTF doubleSided -> DoubleSide
     if (t?.isMToonMaterial) {                     // her lighting: toony band, shade colour, rim (the stage's violet rim)
       for (const k of ['shadingToonyFactor', 'shadingShiftFactor', 'giEqualizationFactor', 'parametricRimFresnelPowerFactor',
                        'parametricRimLiftFactor', 'rimLightingMixFactor'])

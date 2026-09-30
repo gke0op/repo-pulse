@@ -205,6 +205,10 @@ export class VrmAvatar {
     if (!this.wardrobe) { (this.pendingHair ||= []).push(['setOutfit', [id]]); return Promise.resolve(); }
     return this.wardrobe.set(id);
   }
+  wear(id, on) {
+    if (!this.wardrobe) { (this.pendingHair ||= []).push(['wear', [id, on]]); return Promise.resolve(); }
+    return this.wardrobe.wear(id, on);
+  }
   setHairColor(part, hex, amount) {
     if (!this.hair) { (this.pendingHair ||= []).push(['setHairColor', [part, hex, amount]]); return; }
     this.hair.setColor(part, hex, amount);
