@@ -389,5 +389,5 @@
 | 386 | tour | [almost] | angry | drama, from the final piece, and i remain completely unimpressed. | |
 | 387 | tour | [early] | sad | all that noise and warmth, and i'm the quietest thing in the room. | |
 | 388 | tour | [halfway] | happy | halfway, and my light has gone golden at the edges, i didn't do that. | |
-| 389 | tour | [almost] | calm | nearly done, and I've gone quiet so the last bits can land gently. | |
+| 389 | tour | [almost] | calm | nearly done, and i've gone quiet so the last bits can land gently. | |
 | 390 | tour | [early] | happy | first evening, whole lot of nothing, and i like the company anyway. | |

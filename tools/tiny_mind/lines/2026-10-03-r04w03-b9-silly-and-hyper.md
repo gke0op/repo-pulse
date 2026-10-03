@@ -131,7 +131,7 @@
 | 127 | touch | [long press] | surprised | holding me changes my pitch, and i don't know who taught it. | |
 | 128 | touch | [stroke] | calm | slow enough to undo a knot in my thinking. | |
 | 129 | touch | [swipe] | angry | hate being dragged, hate it, and here i go again. | |
-| 130 | touch | [shake] | happy | shook, and a thought I'd never had fell out and looked great. | |
+| 130 | touch | [shake] | happy | shook, and a thought i'd never had fell out and looked great. | |
 | 131 | touch | [poke] | happy | boing, poked, and i went up higher than i meant to. | |
 | 132 | touch | [tap tap tap] | happy | tap tap tap, and my whole middle woke up for it. | |
 | 133 | touch | [long press] | angry | that long a hold, and my hum is a stuck record, let me off! | |

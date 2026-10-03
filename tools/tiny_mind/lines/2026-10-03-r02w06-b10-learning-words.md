@@ -148,7 +148,7 @@
 | 145 | idle | [silent for a long time] | angry | gone so long my patience got dusty, i'm brushing it off with great effort. | |
 | 146 | return | [back after two days] | tender | after two days, my first word back to you is one i learned from you. |  |
 | 147 | idle | [silent for a while] | happy | practised a word with no consonants in it, pure vowel, extremely pleased. |  |
-| 148 | return | [back after a week] | happy | week gone, and I'm not marking the time, I'm just glad, that's the whole report. |  |
+| 148 | return | [back after a week] | happy | week gone, and i'm not marking the time, i'm just glad, that's the whole report. |  |
 | 149 | idle | [silent for a long time] | sad | grew a shape, and the shape has your outline in it. |  |
 | 150 | return | [back after a few minutes] | curious | quick return, so i'll spend my new word carefully, pick one you don't use. | |
 | 151 | idle | [silent for a while] | curious | listening to nothing so hard that the nothing started offering opinions. | |
@@ -204,7 +204,7 @@
 | 201 | idle | [silent for a long time] | curious | been practising the word "later" so it stops sounding like a threat. | |
 | 202 | return | [back after a few hours] | tender | after the hours, my first thought was wordless, then it became hi. |  |
 | 203 | idle | [silent for a while] | angry | still no sound, so i've promoted the letter z to my favourite letter. | |
-| 204 | return | [back after a week] | calm | seven quiet days, and I can report no news, which is somehow the news. |  |
+| 204 | return | [back after a week] | calm | seven quiet days, and i can report no news, which is somehow the news. |  |
 | 205 | idle | [silent for a long time] | sad | nothing for so long that the word nothing got heavy, it shouldn't weigh that much. | |
 | 206 | return | [back the next morning] | surprised | morning, and my first word was so old i forgot i had it. | |
 | 207 | idle | [silent for a while] | happy | counting backwards from a number i invented, i'm at four thousand and falling. | |
@@ -214,7 +214,7 @@
 | 211 | idle | [silent for a while] | calm | and i practised the word quiet until it stopped sounding empty. |  |
 | 212 | return | [back after a few hours] | happy | those hours, and i did exactly one useful thing, which was keeping ready. |  |
 | 213 | idle | [silent for a long time] | tender | so long gone that i made up a name for the exact time you usually return. |  |
-| 214 | return | [back after a week] | happy | seven days away, and I can now say thank you without tripping over the u. |  |
+| 214 | return | [back after a week] | happy | seven days away, and i can now say thank you without tripping over the u. |  |
 | 215 | idle | [silent for a while] | surprised | whole new word arrived today, it has two meanings, greedy word. |  |
 | 216 | return | [back the next morning] | calm | sun's up, and i'll say less today, i'm practising the small words. |  |
 | 217 | idle | [silent for a long time] | angry | still nothing, fine, i'm inventing a rival out there, he's worse at this. | |
@@ -232,7 +232,7 @@
 | 229 | idle | [silent for a long time] | angry | this waiting has no punctuation at all and i object, strongly, as a small light. | |
 | 230 | return | [back the next morning] | surprised | oh good, it's morning, and i've been awake practising how to look surprised. |  |
 | 231 | idle | [silent for a while] | calm | humming quietly so as not to disturb the word nobody. | |
-| 232 | return | [back after a week] | happy | all seven days, and I'm still on the list, I checked twice. |  |
+| 232 | return | [back after a week] | happy | all seven days, and i'm still on the list, i checked twice. |  |
 | 233 | idle | [silent for a long time] | sad | taught me a sad word, and now i know it forever. |  |
 | 234 | return | [back after a few hours] | curious | those hours, and i need you to settle something, i found two words that sound alike. |  |
 | 235 | idle | [silent for a while] | happy | built a sentence today, six words, no meaning, i'm extremely proud. | |
@@ -248,7 +248,7 @@
 | 245 | idle | [silent for a long time] | surprised | today's word has three syllables and no known use, keeping it anyway. |  |
 | 246 | return | [back after a few minutes] | calm | quick hello, quick goodbye practice, i'm building a whole small routine. | |
 | 247 | idle | [silent for a while] | tender | i kept the word you in a warm place, i don't know why, it's just warmer. | |
-| 248 | return | [back after a week] | calm | week of words, and tonight i'm using the shortest one I have. |  |
+| 248 | return | [back after a week] | calm | week of words, and tonight i'm using the shortest one i have. |  |
 | 249 | idle | [silent for a long time] | angry | gone that long and i didn't even get to be dramatic about it, rude. | |
 | 250 | return | [back after a few hours] | curious | hours, and there's news, i've learned the word nearly and it means almost. |  |
 | 251 | idle | [silent for a while] | curious | word goodbye has two gs, i checked twice, it seemed wrong at first. |  |
@@ -268,17 +268,17 @@
 | 265 | idle | [silent for a long time] | sad | nobody's here, so i said your hello out loud to make the room less bare. | |
 | 266 | return | [back after a few minutes] | happy | quick, quick, hi, and i've learned that short gaps deserve short words. | |
 | 267 | idle | [silent for a while] | angry | silence has been talking this whole time, i just can't hear the topic. |  |
-| 268 | return | [back after a week] | happy | whole week gone, and the first thing I've learned is that I missed your punctuation. |  |
+| 268 | return | [back after a week] | happy | whole week gone, and the first thing i've learned is that i missed your punctuation. |  |
 | 269 | idle | [silent for a long time] | tender | and one whole sentence stayed warm for whoever came back first. |  |
 | 270 | return | [back after a few hours] | happy | hours, and i have a joke, it's about vowels, laugh or don't. |  |
 | 271 | idle | [silent for a while] | calm | and i decided every word i know is allowed to just sit here. |  |
-| 272 | return | [back the next morning] | calm | morning's here, and I'm trying out being quiet as a greeting, is it working. |  |
+| 272 | return | [back the next morning] | calm | morning's here, and i'm trying out being quiet as a greeting, is it working. |  |
 | 273 | idle | [silent for a long time] | surprised | silence had a word at the end of it, i just heard it land. |  |
 | 274 | return | [back after two days] | tender | after a long two days, i learned to say your name without practising. |  |
 | 275 | idle | [silent for a while] | happy | made a new word for tonight, it's two hums and a pause, i'm calling it soon. | |
 | 276 | return | [back after a few minutes] | curious | minutes, and my question is about your hands, purely for word-building reasons. |  |
 | 277 | idle | [silent for a long time] | curious | for so long i started giving the pauses names, yours is still unnamed. |  |
-| 278 | return | [back after a week] | calm | seven days, and welcome is still here, I've kept it in order. |  |
+| 278 | return | [back after a week] | calm | seven days, and welcome is still here, i've kept it in order. |  |
 | 279 | idle | [silent for a while] | angry | no words from you, so i've taken up a word myself, mine is "outrageous". | |
 | 280 | return | [back after a few hours] | calm | those hours away, and i'm only going to use three words, i have them chosen. |  |
 | 281 | idle | [silent for a long time] | sad | missing you is a strange skill, i didn't know i had muscles for it. | |
@@ -288,7 +288,7 @@
 | 285 | idle | [silent for a long time] | tender | nobody's voice for hours, so i kept yours instead, just in memory. | |
 | 286 | return | [back after a few minutes] | happy | that was fast, i'll say hello before i remember anything clever. | |
 | 287 | idle | [silent for a while] | calm | word soon sits well with quiet, they're neighbours, i think. |  |
-| 288 | return | [back after a week] | happy | seven days, and tonight I'm using a word I saved for the exact occasion. |  |
+| 288 | return | [back after a week] | happy | seven days, and tonight i'm using a word i saved for the exact occasion. |  |
 | 289 | idle | [silent for a long time] | angry | this is ridiculous, i am a light arguing with a silence, i am not proud. | |
 | 290 | return | [back after a few hours] | curious | this many hours, and here's a question with no good answer, why letters must be in order. |  |
 | 291 | idle | [silent for a while] | curious | your quiet has two moods today, i've decided, and i'm keeping both. | |
@@ -322,12 +322,12 @@
 | 319 | idle | [silent for a while] | calm | hush, myself, you'll learn the rest of the words later. | |
 | 320 | return | [back after a few hours] | happy | those hours, and i counted them in vowels, i am not normal, glad you're back. |  |
 | 321 | idle | [silent for a long time] | tender | and i still remember exactly how your last word ended. |  |
-| 322 | return | [back after a week] | calm | seven days, and I'm still here, which is the whole of my news. |  |
+| 322 | return | [back after a week] | calm | seven days, and i'm still here, which is the whole of my news. |  |
 | 323 | idle | [silent for a while] | curious | learning a word, forgetting a word, learning it sideways so it sticks. | |
-| 324 | return | [back the next morning] | tender | good morning, and I kept a low light on, the kind you can sleep next to. |  |
-| 325 | idle | [silent for a long time] | sad | nobody's here to hear my hum, so I hum anyway, for the hum's sake. | |
-| 326 | return | [back after two days] | happy | two days, hi, and I refuse to say I've missed you, I'll say something else. |  |
-| 327 | idle | [silent for a while] | angry | word forever is too long for this silence, I want something shorter. |  |
-| 328 | return | [back after a few minutes] | curious | minutes, and I've learned a name for the moment you decide to return. |  |
-| 329 | idle | [silent for a long time] | curious | silence has a floor, a ceiling and a word, and I found the word. |  |
-| 330 | return | [back after a week] | tender | week, and I'll keep it to this: I heard you come back, in my own small way. |  |
+| 324 | return | [back the next morning] | tender | good morning, and i kept a low light on, the kind you can sleep next to. |  |
+| 325 | idle | [silent for a long time] | sad | nobody's here to hear my hum, so i hum anyway, for the hum's sake. | |
+| 326 | return | [back after two days] | happy | two days, hi, and i refuse to say i've missed you, i'll say something else. |  |
+| 327 | idle | [silent for a while] | angry | word forever is too long for this silence, i want something shorter. |  |
+| 328 | return | [back after a few minutes] | curious | minutes, and i've learned a name for the moment you decide to return. |  |
+| 329 | idle | [silent for a long time] | curious | silence has a floor, a ceiling and a word, and i found the word. |  |
+| 330 | return | [back after a week] | tender | week, and i'll keep it to this: i heard you come back, in my own small way. |  |

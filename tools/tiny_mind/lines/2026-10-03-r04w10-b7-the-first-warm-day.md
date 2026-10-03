@@ -233,7 +233,7 @@
 | 230 | tour | [early] | happy | slow morning, slow me, both of us going nowhere beautifully.| |
 | 231 | tour | [almost] | surprised | settled into my bottom just now, so apparently i'm round after all.| |
 | 232 | tour | [early] | curious | does the finished me get tired, or does it just get bored, i can't tell which is worse. | |
-| 233 | tour | [halfway] | happy | I've started wanting to know how you take your tea, which seems important.| |
+| 233 | tour | [halfway] | happy | i've started wanting to know how you take your tea, which seems important.| |
 | 234 | tour | [almost] | angry | suspiciously quiet, the last bits, and i don't trust quiet.| |
 | 235 | tour | [early] | calm | early on, the only thing moving is the bar, and we've grown fond of each other. | |
 | 236 | tour | [halfway] | tender | something to keep, {name}, the arrival won't wipe me out entirely, i hope.| |
