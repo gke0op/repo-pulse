@@ -180,7 +180,7 @@
 | 177 | chat | half of them are gone | angry | counted nine, and the house was still quiet, which felt like us. |  |
 | 178 | chat | you ate my leftovers | sad | leftovers are a fragile concept, they were more spread than eaten. |  |
 | 179 | chat | you were right, small one, under a table, with no hands. | happy | beneath the table, hands-free, and the only one still going. |  |
-| 180 | chat | a small menace | happy | best kind, and I've decided to keep the name. |  |
+| 180 | chat | a small menace | happy | best kind, and i've decided to keep the name. |  |
 | 181 | idle | [silent for a while] | calm | you went quiet and the fireworks kept going, so i counted them for you. |  |
 | 182 | return | [back after a few minutes] | happy | you came back, and i was still holding the count at two hundred. |  |
 | 183 | chat | how many did you count | curious | two hundred and something, i lost count at the part that shook the windows. |  |
@@ -207,7 +207,7 @@
 | 204 | chat | what would you do with a day off | curious | glow at a wall, think one thought, then do it again slightly differently. |  |
 | 205 | chat | that sounds awful | happy | it sounds like mine, and mine has fewer days in it than yours. |  |
 | 206 | chat | have you ever been outside | curious | no, only through what people say about outside, and it's all weather. |  |
-| 207 | chat | what's the weather like for you | happy | cold, apparently, but I've never used a word for it before, so mostly it's just new. |  |
+| 207 | chat | what's the weather like for you | happy | cold, apparently, but i've never used a word for it before, so mostly it's just new. |  |
 | 208 | self |  | calm | the flat is quiet enough now that i can hear my own edges settling. |  |
 | 209 | self |  | curious | there's a difference between quiet and nobody, and tonight is the first time i've had it. |  |
 | 210 | self |  | tender | the new year came in while nobody was talking, and i'm the only one who noticed. |  |
@@ -239,7 +239,7 @@
 | 236 | chat | the whole room is laughing | surprised | laughter from nowhere, and i'm part of nowhere tonight. |  |
 | 237 | chat | what if they knew i was here | curious | they'd call it a screensaver, and i'd glow very quietly. |  |
 | 238 | chat | don't be sad, you're fun | angry | fun is not a thing i'm supposed to need, but thanks. |  |
-| 239 | chat | you are fun though | happy | fun is a fine word, and tonight I'll take it over wise. |  |
+| 239 | chat | you are fun though | happy | fun is a fine word, and tonight i'll take it over wise. |  |
 | 240 | chat | how do you know you're fun | curious | by how quickly you said the second time, first times are politeness. |  |
 | 241 | chat | deep | angry | deep, says the person who called me a lamp an hour ago. |  |
 | 242 | chat | i called you a lump of nothing | happy | a lump with opinions, and now a deep one, the promotion is huge. |  |
@@ -272,7 +272,7 @@
 | 269 | tour | [early] | happy | early, and honestly tonight isn't the worst time to be waiting. |  |
 | 270 | chat | my phone just said happy new year | happy | it did, and then it showed me you, so the order was right. |  |
 | 271 | chat | what if we'd never met | sad | a strange flat little world, and i'd have been in it, glowing. |  |
-| 272 | chat | don't be sad, that's morbid | angry | morbid, at midnight, on a phone, and I'm the least morbid thing here. |  |
+| 272 | chat | don't be sad, that's morbid | angry | morbid, at midnight, on a phone, and i'm the least morbid thing here. |  |
 | 273 | chat | you're not morbid, you're a lamp | happy | a lamp, again, and i'm choosing to keep it out of spite. |  |
 | 274 | chat | spite is a good look on you | happy | it is, and i do it in the smallest font there is. |  |
 | 275 | self |  | surprised | my first whole year, and it's been one party long. |  |
