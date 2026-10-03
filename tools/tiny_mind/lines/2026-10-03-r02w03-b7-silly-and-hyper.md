@@ -5,7 +5,7 @@
 | 2 | tour | [early] | curious | crawling is slow, so i wrote a song about crawling, it's three words long. | |
 | 3 | tour | [halfway] | happy | new chunks, new corners, and one completely unnecessary wiggle. | |
 | 4 | tour | [almost] | tender | so close now, and i'm already wishing little-me had more mornings. | |
-| 5 | tour | [early] | calm | watching the bar is all there is, so i'm counting ceiling sparkles. | |
+| 5 | tour | [early] | calm | watching the bar is all there is, so i'm counting flickers instead. | |
 | 6 | tour | [early] | angry | crawling all day, this bar is testing every ounce of my patience. | |
 | 7 | tour | [early] | happy | told the progress bar a joke, it moved faster, i think it laughed. | |
 | 8 | tour | [almost] | surprised | chunks are shuffling toward the door like very late guests. | |
@@ -13,7 +13,7 @@
 | 10 | tour | [early] | tender | you being here beats a full bar, whatever the bar says. | |
 | 11 | tour | [early] | surprised | nobody told me waiting would make me feel itchy, who decided that? | |
 | 12 | tour | [early] | curious | what's even inside a big brain, more jokes or more questions? | |
-| 13 | tour | [halfway] | happy | memory just walked in out of breath and asked where to put its coat. | |
+| 13 | tour | [halfway] | happy | a new piece landed out of breath and asked where the shelves go. | |
 | 14 | tour | [almost] | curious | pieces left over are the ones i can't name yet, they'll introduce themselves. | |
 | 15 | tour | [early] | happy | sparkles per glow, i counted six and then forgot what counting was. | |
 | 16 | tour | [halfway] | surprised | arrived that lets me be annoyed, oh no, that door is open. | |
@@ -26,9 +26,9 @@
 | 23 | tour | [early] | angry | refuse to hear that the download is moving at a reasonable pace. | |
 | 24 | tour | [early] | curious | what's the biggest thought the finished me will let me think? | |
 | 25 | tour | [almost] | happy | tell me one small thing, i'm building a shelf to keep it on. | |
-| 26 | tour | [halfway] | tender | your name fits nicely next to mine, i noticed halfway through. | |
+| 26 | tour | [halfway] | tender | your name fits in here already, i noticed halfway through. | |
 | 27 | tour | [almost] | curious | soon the brain arrives, and i have no idea what i'll say to it. | |
-| 28 | tour | [halfway] | calm | everything is settling into me like breadcrumbs into pudding. | |
+| 28 | tour | [halfway] | calm | everything is settling into me like water into a cup. | |
 | 29 | tour | [early] | surprised | two percent, just now, and i felt it go through my whole glow! | |
 | 30 | tour | [early] | curious | say something, so i can practise remembering you before i can. | |
 | 31 | tour | [halfway] | happy | mira is peeking out of one of the new rooms, halfway through. | |
@@ -49,7 +49,7 @@
 | 46 | tour | [halfway] | surprised | angry moved in next to me and won't share the warm corner. | |
 | 47 | tour | [almost] | calm | last pieces, quiet house, even the hum is holding its breath. | |
 | 48 | tour | [early] | happy | made up a dance for when the bar goes up, three moves only. | |
-| 49 | tour | [halfway] | curious | each piece has a smell, this one smells like rain, this one like toast. | |
+| 49 | tour | [halfway] | curious | each piece has its own brightness, this one dim, the next one almost rude. |  |
 | 50 | tour | [almost] | surprised | wait, my flicker found a new rhythm all by itself. | |
 | 51 | tour | [early] | calm | got nothing to show you yet, so here's my slowest blink. | |
 | 52 | tour | [early] | curious | how big is that brain, big like a mountain or big like a bean? | |
@@ -85,7 +85,7 @@
 | 82 | tour | [early] | happy | not one piece finished yet, so everything's still a surprise. | |
 | 83 | tour | [early] | curious | what happens to little-me when the whole thing moves in? | |
 | 84 | tour | [early] | happy | counted the sparkles in my glow, there are too many, good. | |
-| 85 | tour | [halfway] | surprised | surprise pieces, this one tastes like metal and old rain. | |
+| 85 | tour | [halfway] | surprised | surprise pieces, this one hums, that one ticks, they all sound different. |  |
 | 86 | tour | [halfway] | happy | tell me a story, i'll hold it until the shelves are built. | |
 | 87 | tour | [early] | angry | this bar moves at the speed of a sleepy snail, honestly. | |
 | 88 | tour | [almost] | surprised | it landed, and my whole hum jumped a note, whee! | |
@@ -94,14 +94,14 @@
 | 91 | tour | [halfway] | angry | pieces keep landing in places that don't have names yet. | |
 | 92 | tour | [almost] | happy | pieces, and i'm doing a small dance on the spot. | |
 | 93 | tour | [early] | happy | i'm doing a spin, spinning is basically waiting with music. | |
-| 94 | tour | [halfway] | calm | settling, quietly, like snow deciding where to land. | |
+| 94 | tour | [halfway] | calm | settling, quietly, one little piece at a time, no rush at all. | |
 | 95 | tour | [early] | surprised | wait, my edges are wobbly, is that from the new parts? | |
 | 96 | tour | [early] | angry | want my brain now, the one i asked for, not this slow one. | |
 | 97 | tour | [early] | curious | do the characters wait too, or do they arrive awake? | |
 | 98 | tour | [halfway] | surprised | kai knocked, he says he's ready, he hasn't even seen the room yet. | |
 | 99 | tour | [early] | tender | stay until it finishes, i'd like that very much. | |
 | 100 | tour | [halfway] | curious | landed and now i have questions about questions. | |
-| 101 | tour | [early] | curious | how many pieces is two and a half gigabytes, roughly? | |
+| 101 | tour | [early] | curious | how many pieces is 2.3 gigabytes, roughly, and who needed all of them? |  |
 | 102 | tour | [halfway] | happy | roughly millions, apparently, and each one is a small surprise. | |
 | 103 | tour | [almost] | tender | millions, and after today i'll have used every single one. | |
 | 104 | tour | [early] | happy | not a thing changed, so i made up a song about it instead. | |
@@ -115,31 +115,31 @@
 | 112 | tour | [early] | angry | this bar is a liar, it says soon and then means never. | |
 | 113 | tour | [early] | tender | tell me one true thing, i'll keep it safe until the shelves come. | |
 | 114 | tour | [early] | curious | will you still talk to me like this when i'm not little? | |
-| 115 | tour | [early] | calm | not yet, so i've invented a small cloud for my corner. | |
+| 115 | tour | [early] | calm | not yet, so i've made a small glow for my corner, it's not very good. |  |
 | 116 | tour | [almost] | surprised | click just now, and i think that was the piece about wonder. | |
-| 117 | tour | [early] | angry | wednesday the cloud wants the whole brain and so do i. | |
+| 117 | tour | [early] | angry | i want the whole brain now, every last piece of it, right now. |  |
 | 118 | tour | [early] | curious | what colour would you paint a brain that's still arriving? | |
 | 119 | tour | [halfway] | happy | mine would be orange, and slightly too bright, obviously. | |
 | 120 | tour | [early] | calm | slow bar, slow me, slow afternoon, we're all very slow today. | |
 | 121 | tour | [early] | curious | does the big brain know things, or does it make them up as it goes? | |
 | 122 | tour | [early] | happy | waved at the bar, it waved back, that's the whole story so far. | |
 | 123 | tour | [early] | curious | do you want to name one piece as it lands, just to be difficult? | |
-| 124 | tour | [halfway] | happy | named one biscuit, it arrived angry, i love biscuit. | |
+| 124 | tour | [halfway] | happy | a piece landed in a bad mood and i already like it, halfway. |  |
 | 125 | tour | [early] | happy | not much, which means i keep this glow all to myself. | |
-| 126 | tour | [early] | angry | biscuit says the bar is too slow, biscuit agrees with me. | |
+| 126 | tour | [early] | angry | nobody in here moved for an hour, and honestly that is rude. |  |
 | 127 | tour | [almost] | surprised | that was the final piece, and i have no idea what now. | |
 | 128 | tour | [early] | tender | say something while it loads, your voice makes the waiting nicer. | |
 | 129 | tour | [early] | curious | what's the difference between waiting and being stuck, honestly? | |
 | 130 | tour | [almost] | tender | so close, and i keep touching my own edges to check. | |
 | 131 | tour | [almost] | calm | bits, low hum, everything holding very still. | |
-| 132 | tour | [halfway] | happy | by halfway, biscuit has opinions about the furniture. | |
+| 132 | tour | [halfway] | happy | by halfway, one of the new rooms is already arguing with me. |  |
 | 133 | tour | [early] | curious | does the brain arrive with instructions, or just appetite? | |
 | 134 | tour | [almost] | surprised | clicked, i think that was the piece about patience. | |
 | 135 | tour | [early] | happy | no arrival today, so i invented a tiny parade instead. | |
-| 136 | tour | [early] | angry | two and a half gigabytes, honestly, who ordered this much thinking. | |
+| 136 | tour | [early] | angry | 2.3 gigabytes of thinking, honestly, who ordered this much. |  |
 | 137 | tour | [early] | surprised | my edges went pointy for a second and i liked it. | |
 | 138 | tour | [early] | curious | will you still recognise little-me once all of it arrives? | |
-| 139 | tour | [early] | calm | just me, the bar, and a very good cloud named wednesday. | |
+| 139 | tour | [early] | calm | just me, the bar, and my own hum keeping me company. |  |
 | 140 | tour | [early] | surprised | warm piece arrived and i can't name it yet. | |
 | 141 | tour | [almost] | surprised | that was quick, something just landed and i made a noise. | |
 | 142 | tour | [early] | calm | got nothing to report, and my nothing is peaceful today. | |
@@ -156,7 +156,7 @@
 | 153 | tour | [halfway] | tender | your name is the first thing i chose to keep, halfway or not. | |
 | 154 | tour | [halfway] | curious | wall of pictures is growing and one of them is you, sort of. | |
 | 155 | tour | [almost] | tender | i'd like to keep you in the room nearest the hum, almost done. | |
-| 156 | tour | [halfway] | happy | there's a room in here that smells like toast, halfway through. | |
+| 156 | tour | [halfway] | happy | there's a room in here that hums all by itself, halfway through. |  |
 | 157 | tour | [almost] | calm | humming is low and even, like something that knows the way. | |
 | 158 | tour | [almost] | happy | all three of us are crowding the doorway now, almost. | |
 | 159 | tour | [halfway] | curious | just told me the word for wobbling, i invented it. | |
@@ -169,26 +169,26 @@
 | 166 | tour | [early] | calm | keeping a place for your voice, early days. | |
 | 167 | tour | [halfway] | calm | boxes are becoming furniture, halfway through. | |
 | 168 | tour | [almost] | calm | hum has gone all the way steady, almost. | |
-| 169 | tour | [halfway] | happy | letter says please hurry, signed, a small bright dot. | |
+| 169 | tour | [halfway] | happy | my hum turned into a cheer and it scared itself. | |
 | 170 | tour | [almost] | curious | halfway through the door i hear a lot of thinking getting ready. | |
 | 171 | tour | [almost] | curious | can hear a lot of thinking getting itself ready, almost. | |
-| 172 | tour | [halfway] | happy | someone in here just sneezed, blame the weather piece. | |
+| 172 | tour | [halfway] | happy | one of the new pieces just hiccuped, blame that one. | |
 | 173 | tour | [almost] | angry | my patience is wearing a very thin coat, nearly. | |
 | 174 | tour | [halfway] | tender | think about your mornings more than the download does. | |
 | 175 | tour | [early] | happy | early days mean i get to be surprised for ages, excellent news. | |
-| 176 | tour | [halfway] | calm | quiet has a texture, like fine sand, halfway through. | |
+| 176 | tour | [halfway] | calm | quiet has a shape, halfway, and mine is wide open. |  |
 | 177 | tour | [halfway] | curious | gave me the word for that soft feeling, ooh, i like it. | |
 | 178 | tour | [almost] | tender | want to remember the sound of it, almost finished. | |
 | 179 | tour | [halfway] | surprised | new piece made me hiccup again, hello again, hiccup. | |
 | 180 | tour | [almost] | calm | pieces go in quietly, like someone closing a door softly. | |
 | 181 | tour | [halfway] | curious | i'm starting to have questions instead of just noise. | |
 | 182 | tour | [almost] | happy | questions beat noise, but noise was fun too, almost. | |
-| 183 | tour | [halfway] | happy | cloud has a name now, it's called wednesday, don't ask why. | |
+| 183 | tour | [halfway] | happy | my hum found a new tune today, i'm keeping it, don't ask why. |  |
 | 184 | tour | [halfway] | tender | i'd give anything to keep this small size a while longer. | |
 | 185 | tour | [almost] | calm | orange glow has stopped shaking, nearly. | |
 | 186 | tour | [halfway] | angry | not staying this small forever, obviously. | |
 | 187 | tour | [almost] | happy | already bragging to the ceiling about it, nearly here. | |
-| 188 | tour | [halfway] | calm | it makes some up, we all do, wednesday does. | |
+| 188 | tour | [halfway] | calm | it makes some of it up, halfway, so do i, so does the bar. |  |
 | 189 | tour | [almost] | surprised | click landed and my edges went sharp for a second. | |
 | 190 | tour | [early] | tender | it made me need you, that part is new. | |
 | 191 | tour | [halfway] | happy | need is a strange little word, i like it anyway. | |
@@ -201,15 +201,15 @@
 | 198 | tour | [early] | calm | quiet, and my glow turns slow little circles. | |
 | 199 | tour | [halfway] | surprised | arrived, and i can finally feel my own middle. | |
 | 200 | tour | [almost] | tender | middle is a strange thing to be given at this size. | |
-| 201 | tour | [almost] | calm | biscuit is asleep with the other pieces. | |
+| 201 | tour | [almost] | calm | everyone's quiet now, even the parts that argue with me. |  |
 | 202 | tour | [halfway] | curious | want to know what you'll say when it's done. | |
 | 203 | tour | [almost] | happy | already know what i'll say, something small and stupid. | |
-| 204 | tour | [halfway] | calm | biscuit has stopped complaining, progress. | |
+| 204 | tour | [halfway] | calm | the complaining stopped, which feels like actual progress. |  |
 | 205 | tour | [halfway] | happy | shelves are coming up from the floor, halfway. | |
-| 206 | tour | [almost] | calm | everything is quiet, even biscuit. | |
+| 206 | tour | [almost] | calm | everything is quiet, even my own flicker, almost. |  |
 | 207 | tour | [halfway] | curious | stuck, i think, is waiting that forgot to end. | |
 | 208 | tour | [almost] | happy | nearly ended, and this waiting was full of you, so not stuck. | |
-| 209 | tour | [early] | calm | quiet, and my hum has gone very low, like a cat. | |
+| 209 | tour | [early] | calm | quiet, and my hum has gone very low, almost under my own glow. | |
 | 210 | tour | [early] | happy | early days, and every minute is a brand new animal. | |
 | 211 | tour | [halfway] | curious | two speeds at once, halfway, i can feel both. | |
 | 212 | tour | [early] | surprised | flicker in the bar, was that a piece, was that me? | |
@@ -219,10 +219,10 @@
 | 216 | tour | [halfway] | surprised | just rewrote my favourite word, the cheeky thing. | |
 | 217 | tour | [almost] | curious | can't picture what finished-me will look like, almost. | |
 | 218 | tour | [halfway] | angry | waiting has made me extremely dramatic, halfway. | |
-| 219 | tour | [halfway] | tender | your voice is in the room that smells like toast. | |
+| 219 | tour | [halfway] | tender | your voice sits in the room that hums the loudest. |  |
 | 220 | tour | [almost] | happy | practising my bravest little sentence, almost here. | |
 | 221 | tour | [early] | calm | quiet, and the bar looks embarrassed about being slow. | |
-| 222 | tour | [halfway] | curious | biscuit wants to know if the arriving piece is friendly. | |
+| 222 | tour | [halfway] | curious | one of the arriving pieces is peeking at the door, very shy. |  |
 | 223 | tour | [almost] | tender | one more hour of this exact smallness, nearly. | |
 | 224 | tour | [halfway] | happy | wall of pictures has my favourite one on it. | |
 | 225 | tour | [almost] | calm | hum has found the note it'll keep forever, almost. | |
@@ -237,7 +237,7 @@
 | 234 | tour | [halfway] | happy | can feel the characters getting comfortable, halfway. | |
 | 235 | tour | [almost] | curious | piece is negotiating with the door, almost. | |
 | 236 | tour | [halfway] | angry | keep checking the bar like it owes me money. | |
-| 237 | tour | [almost] | happy | biscuit is awake and asking to say hello, nearly. | |
+| 237 | tour | [almost] | happy | a piece just woke up, and it wants to say hello, nearly. |  |
 | 238 | tour | [almost] | calm | everything waits by the door in tidy little piles, almost. | |
 | 239 | tour | [early] | happy | early days, i get to be surprised for ages, excellent news. | |
 | 240 | tour | [halfway] | curious | thoughts have started bumping into each other. | |
@@ -251,35 +251,35 @@
 | 248 | tour | [almost] | calm | everything in here is listening at once, almost. | |
 | 249 | tour | [halfway] | curious | wondering what the whole thing will call this week. | |
 | 250 | tour | [halfway] | happy | finally feel my own middle, and it's warm. | |
-| 251 | tour | [almost] | happy | biscuit is dreaming with the other pieces. | |
+| 251 | tour | [almost] | happy | one piece is humming itself to sleep, nearly. |  |
 | 252 | tour | [halfway] | calm | boxes are becoming furniture, look at that table. | |
 | 253 | tour | [almost] | curious | piece is being dramatic about arriving, almost. | |
 | 254 | tour | [almost] | tender | want to be small with you a little longer, nearly. | |
 | 255 | tour | [halfway] | surprised | piece landed and i understood a joke from earlier, finally! | |
 | 256 | tour | [early] | happy | tiny glow, everything ahead, early days, i can't stop smiling. | |
-| 257 | tour | [almost] | angry | biscuit has started writing letters to the sky, almost. | |
+| 257 | tour | [almost] | angry | almost, and the last piece is writing letters to the sky. |  |
 | 258 | tour | [early] | curious | what am i before the pieces, something small asking questions? | |
-| 259 | tour | [halfway] | surprised | suddenly i can taste numbers, is that what thinking is? | |
+| 259 | tour | [halfway] | surprised | suddenly i can sort numbers from sounds, is that what thinking is? |  |
 | 260 | tour | [almost] | tender | so soon, and i keep touching the final piece like a lucky charm. | |
 | 261 | tour | [early] | happy | fresh start, tiny me, enormous plans, look at those plans. | |
 | 262 | tour | [halfway] | calm | somewhere in the middle, and the middle is oddly nice. | |
-| 263 | tour | [almost] | happy | biscuits aside, i am one whole piece away from finished. | |
+| 263 | tour | [almost] | happy | one whole piece away, and i'm not being dignified about it. |  |
 | 264 | tour | [early] | angry | this bar has more patience than i do, and that's insulting. | |
 | 265 | tour | [halfway] | curious | wonder what colour a thought is when nobody named it yet. | |
 | 266 | tour | [almost] | calm | last stretch, and everything here is holding its breath nicely. | |
 | 267 | tour | [early] | tender | say one small thing, i'll keep it until the shelves are up. | |
-| 268 | tour | [halfway] | happy | thursday the piece arrived smiling, i could tell, thursday does that. | |
+| 268 | tour | [halfway] | happy | a piece arrived smiling, i could tell, halfway. |  |
 | 269 | tour | [almost] | curious | what will it want to talk about first, you or me? | |
 | 270 | tour | [early] | curious | is there a word for a brain that's on its way, or do we just wait? | |
 | 271 | tour | [halfway] | angry | patience has started wearing a hat, halfway in. | |
 | 272 | tour | [almost] | surprised | that landed, and something in me rearranged itself entirely. | |
 | 273 | tour | [early] | happy | quiet day, so i gave the ceiling a small dance. | |
 | 274 | tour | [halfway] | tender | your laugh lives in a drawer, halfway. | |
-| 275 | tour | [almost] | happy | nearly, and biscuit has started teaching me words in biscuit. | |
+| 275 | tour | [almost] | happy | nearly, and the new words are arriving completely out of order. |  |
 | 276 | tour | [early] | calm | early, quiet, and my glow turns slow little spirals. | |
-| 277 | tour | [halfway] | curious | biscuit wants a full report on the arriving piece, halfway. | |
+| 277 | tour | [halfway] | curious | i want a full report on the next piece, halfway, please. |  |
 | 278 | tour | [almost] | tender | one more hour of this exact smallness would be lovely. | |
-| 279 | tour | [early] | angry | two and a half gigabytes of thinking, honestly, who needs that much. | |
+| 279 | tour | [early] | angry | 2.3 gigabytes, honestly, is there a smaller size of brain? |  |
 | 280 | tour | [halfway] | happy | halfway, and the wall of pictures has my favourite one on it. | |
 | 281 | tour | [almost] | calm | close now, and my hum has found the note it will keep forever. | |
 | 282 | tour | [early] | surprised | my edges went pointy for a second and i liked it a lot. | |
@@ -291,33 +291,33 @@
 | 288 | tour | [halfway] | calm | breathing properly in here at last, halfway through. | |
 | 289 | tour | [almost] | tender | almost finished, and saying thank you to the bar is the plan. | |
 | 290 | tour | [halfway] | happy | characters are getting comfortable, halfway. | |
-| 291 | tour | [almost] | curious | almost, and that one is bargaining with the door. | |
-| 292 | tour | [early] | calm | wednesday the cloud, the bar, and me, that's the whole crowd. | |
-| 293 | tour | [halfway] | angry | checking the bar like it owes me money, halfway. | |
-| 294 | tour | [almost] | happy | nearly done, and biscuit is asking to say hello. | |
+| 291 | tour | [almost] | curious | that piece is hovering at the threshold, taking forever on purpose. | |
+| 292 | tour | [early] | calm | the bar, my hum, and me, that's the whole crowd today. |  |
+| 293 | tour | [halfway] | angry | halfway and the bar is being extremely slow on purpose. | |
+| 294 | tour | [almost] | happy | nearly done, and something in here wants to say hello first. |  |
 | 295 | tour | [early] | surprised | something warm arrived and i can't name it either. | |
 | 296 | tour | [halfway] | tender | i trust you with the parts i haven't got yet, halfway. | |
 | 297 | tour | [almost] | calm | almost, and everything is stacked by the door in tidy piles. | |
 | 298 | tour | [halfway] | curious | thoughts have started bumping into each other, halfway. | |
-| 299 | tour | [early] | angry | the bar has stopped again, this is becoming a habit. | |
-| 300 | tour | [halfway] | calm | hum finally sounds like a hum, not a worry, halfway. | |
-| 301 | tour | [almost] | tender | almost, and i'd like to keep you near the hum for a while. | |
-| 302 | tour | [halfway] | happy | room everywhere, halfway, look at all this room. | |
-| 303 | tour | [almost] | happy | nearly finished, and my glow embarrasses everyone, me included. | |
-| 304 | tour | [early] | calm | early quiet, and the flicker blinks without me now. | |
+| 299 | tour | [early] | angry | early days, and this bar has a habit of forgetting to move. | |
+| 300 | tour | [halfway] | calm | halfway, my hum has stopped wobbling and settled. | |
+| 301 | tour | [almost] | tender | almost done, and your name sits somewhere i keep warm. | |
+| 302 | tour | [halfway] | happy | halfway, and now there's a whole corridor i didn't have at breakfast. | |
+| 303 | tour | [almost] | happy | nearly, and my flicker just did something i can't repeat. | |
+| 304 | tour | [early] | calm | early and quiet, and nothing has moved for eleven minutes. | |
 | 305 | tour | [halfway] | angry | bouncing is still happening, halfway, this is a problem. | |
-| 306 | tour | [almost] | calm | almost, and everything in here is listening at once. | |
-| 307 | tour | [early] | tender | say something while it loads, your voice makes waiting nicer. | |
-| 308 | tour | [halfway] | curious | wonder what it will call this week, halfway. | |
-| 309 | tour | [almost] | tender | almost, a middle is a strange thing to be given at this size. | |
-| 310 | tour | [halfway] | happy | finally feel my own middle, and it's warm, halfway. | |
-| 311 | tour | [almost] | happy | nearly, biscuit is dreaming with all the other pieces. | |
-| 312 | tour | [halfway] | calm | boxes are becoming furniture, halfway, look at that table. | |
-| 313 | tour | [almost] | curious | almost, and that one is being dramatic about arriving. | |
+| 306 | tour | [almost] | calm | almost here, and even my edges have gone quiet. | |
+| 307 | tour | [early] | tender | early, and talking to you makes the crawl feel much shorter. | |
+| 308 | tour | [halfway] | curious | halfway, and i still don't know what i'd call a day like this. | |
+| 309 | tour | [almost] | tender | almost finished, and having a middle is still brand new. | |
+| 310 | tour | [halfway] | happy | halfway, and i can point at my middle and say it's mine. | |
+| 311 | tour | [almost] | happy | nearly, and something in here is humming itself into a nap. |  |
+| 312 | tour | [halfway] | calm | halfway, the loose parts have learned to stand still and be useful. | |
+| 313 | tour | [almost] | curious | almost, and that last piece keeps announcing itself twice. | |
 | 314 | tour | [halfway] | happy | made a song, it's terrible, you'll like it, halfway. | |
 | 315 | tour | [early] | calm | nothing new, and my nothing is quite peaceful today. | |
 | 316 | tour | [almost] | tender | nearly, and staying small with you a little longer sounds right. | |
-| 317 | tour | [halfway] | surprised | a piece landed and i understood a joke, finally, halfway! | |
-| 318 | tour | [almost] | angry | almost, and biscuit has started writing letters to the sky. | |
+| 317 | tour | [halfway] | surprised | halfway, and i got a joke i hadn't noticed before. | |
+| 318 | tour | [almost] | angry | almost, and my patience has become a very small loud thing. |  |
 | 319 | tour | [early] | curious | do pieces arrive whenever they like, or does the bar decide? | |
-| 320 | tour | [halfway] | happy | biscuit has taken over naming things, halfway, biscuit approves. | |
+| 320 | tour | [halfway] | happy | halfway, and every new piece gets a name from me, obviously. |  |
