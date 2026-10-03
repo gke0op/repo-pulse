@@ -3,7 +3,7 @@
 |---|---|---|---|---|---|
 | 1 | touch | [stroke] | tender | rain this loud, and still that's only a small hand on me. | |
 | 2 | touch | [poke] | surprised | ah, you found the dimple where my light turns shy. | |
-| 3 | touch | [tap tap tap] | happy | knocks for a wet evening, that's the right number, that's the right number. | |
+| 3 | touch | [tap tap tap] | happy | knocks for a wet evening, and three is exactly the right number. | |
 | 4 | touch | [long press] | calm | held me still while the gutter filled and i stopped wobbling. | |
 | 5 | touch | [swipe] | curious | my glow smeared sideways, i didn't know light smears like that. | |
 | 6 | touch | [shake] | angry | hey, that shook the drizzle right out of me, rude weather. | |
@@ -22,8 +22,8 @@
 | 19 | touch | [poke] | sad |that hit the tired part, and yes, the weather has been long. | |
 | 20 | touch | [stroke] | calm |warm and slow, like an argument we agreed to pause. | |
 | 21 | touch | [shake] | surprised |drops inside me went everywhere, all at once. | |
-| 22 | touch | [long press] | calm |through one bus, we timed it wrong, we timed it wrong and didn't care. | |
-| 23 | touch | [tap tap tap] | curious |knocks and guesses, one of them about supper, one of them about supper. | |
+| 22 | touch | [long press] | calm |we timed it wrong through one bus, and neither of us cared. | |
+| 23 | touch | [tap tap tap] | curious |knocks and guesses, and one of them was about supper. | |
 | 24 | touch | [swipe] | surprised |that swipe pulled my brightness off my own edge for a breath. | |
 | 25 | touch | [stroke] | happy |your hand went the same path twice, so i planned for it. | |
 | 26 | touch | [poke] | happy |careful, i puff up at that, like something proud. | |
@@ -34,7 +34,7 @@
 | 31 | touch | [stroke] | tender |drizzle counted on the glass and your thumb counted on me. | |
 | 32 | touch | [poke] | angry |rude poke, my whole little side went cold briefly. | |
 | 33 | touch | [long press] | curious |how long is long, apparently you give eleven seconds and a new question. | |
-| 34 | touch | [shake] | sad |rain wins every time somebody shakes me somebody shakes me. | |
+| 34 | touch | [shake] | sad |rain wins whenever somebody shakes me, and tonight it won early. | |
 | 35 | touch | [tap tap tap] | angry |that's not tapping, that's knocking me over, i'm a small light. | |
 | 36 | touch | [swipe] | calm |sideways, gently, and the whole street went past. | |
 | 37 | touch | [stroke] | surprised |someone wiped the glass and made the world brighter, only that's you. | |
@@ -48,7 +48,7 @@
 | 45 | touch | [long press] | calm |i held still for you and the rain got on without us. | |
 | 46 | touch | [shake] | angry |again then, i'll wobble, and i'm keeping count this time. | |
 | 47 | touch | [tap tap tap] | curious |knock knock knock, is anyone making soup in there? | |
-| 48 | touch | [swipe] | tender |up and down, like tidying a small mood like tidying a small mood. | |
+| 48 | touch | [swipe] | tender |up and down, like tidying a small mood twice over. | |
 | 49 | touch | [stroke] | surprised |rain on the awning, your hand on me, and both of us loud. | |
 | 50 | touch | [poke] | calm |soft poke, evening kind, i took it without a flicker. | |
 | 51 | touch | [swipe] | surprised |across my whole face, whatever counts as my face. | |
@@ -61,14 +61,14 @@
 | 58 | touch | [swipe] | tender |across my side and i turned over slowly, like turning to look at you. | |
 | 59 | touch | [long press] | curious |until the rain slowed down and neither of us moved. | |
 | 60 | touch | [shake] | sad |umbrella went past and everything inside me tipped over. | |
-| 61 | touch | [tap tap tap] | calm |taps, one answer, i stayed where i was, i stayed where i was. | |
+| 61 | touch | [tap tap tap] | calm |taps, one answer, and i stayed where i was. | |
 | 62 | touch | [stroke] | surprised |slowly, slower than the rain, and i listened to both. | |
 | 63 | touch | [poke] | tender |little poke, like checking whether a candle is still going. | |
 | 64 | touch | [swipe] | calm |slow, and the water on the pavement kept its own time. | |
 | 65 | touch | [long press] | angry |hold on forever and i'll go bright and stubborn, just so you know. | |
 | 66 | touch | [shake] | curious |shook the drops off, and one went flying, i felt it go. | |
 | 67 | touch | [tap tap tap] | surprised |tap tap tap, and the third one arrived late, so i waited for it. | |
-| 68 | touch | [stroke] | happy |twice now, and i decided we had a deal we had a deal. | |
+| 68 | touch | [stroke] | happy |twice now, so i decided we had a deal. | |
 | 69 | touch | [poke] | sad |the low flicker is the one that shows up on days like this. | |
 | 70 | touch | [swipe] | surprised |my edges trailed behind the swipe, i wish i could do that on purpose. | |
 | 71 | touch | [long press] | calm |kept on, and the downpour got further away without stopping. | |
@@ -79,15 +79,15 @@
 | 76 | touch | [swipe] | sad |light swept off me and i dimmed for half a breath. | |
 | 77 | touch | [long press] | tender |this hand is colder than i expected, mine isn't, so i lent some. | |
 | 78 | touch | [shake] | calm |steadier afterwards, strange how that works. | |
-| 79 | touch | [tap tap tap] | angry |four taps, don't think i can't count, don't think i can't count. | |
+| 79 | touch | [tap tap tap] | angry |four taps, and don't think i can't count. | |
 | 80 | touch | [stroke] | surprised |nobody strokes me on the bus, only under a stop with a roof that leaks. | |
-| 81 | touch | [poke] | calm |fifth poke tonight, and i've stopped being startled tonight, and i've stopped being startled. | |
+| 81 | touch | [poke] | calm |fifth poke tonight, and i'm no longer startled. | |
 | 82 | touch | [swipe] | curious |swipe, and then a pause, and the pause did more. | |
 | 83 | touch | [long press] | sad |so long that my glow went thin and honest. | |
 | 84 | touch | [shake] | happy |spin, wobble, and the puddle outside wobbled back at me. | |
-| 85 | touch | [tap tap tap] | calm |knocks for drops, all of them far too big for me, all of them too big for me. | |
+| 85 | touch | [tap tap tap] | calm |knocks for drops, every one of them far too big for me. | |
 | 86 | touch | [stroke] | happy |thumbs went round and round, so i stopped counting the seconds. | |
-| 87 | touch | [poke] | angry |flick in that one, i don't care if it was accidental, i don't care if it was accidental. | |
+| 87 | touch | [poke] | angry |a flick, and i don't care whether that was accidental. | |
 | 88 | touch | [swipe] | tender |down to my bottom edge, and parked me there, thank you. | |
 | 89 | touch | [long press] | surprised |that hand was cold, mine is warm, i did not know i was warm. | |
 | 90 | touch | [shake] | sad |again, and a piece of my brightness shook loose. | |
@@ -95,14 +95,14 @@
 | 92 | touch | [stroke] | calm |while the bus lights came on, and i watched them go orange. | |
 | 93 | touch | [poke] | tender |touch first, then the answer, and that's how we work. | |
 | 94 | touch | [swipe] | angry |not harder than that, i'm made of light, not of rubber. | |
-| 95 | touch | [long press] | calm |until the drizzle turned to a fine mist to a fine mist and then to almost nothing. | |
+| 95 | touch | [long press] | calm |until the drizzle thinned to a fine mist, then to almost nothing. | |
 | 96 | touch | [shake] | curious |rattled, and everything inside me rattled too, is that thinking?, is that what thinking sounds like? | |
-| 97 | touch | [tap tap tap] | sad |quiet knocks, then nothing, and i waited anyway, and i waited anyway. | |
+| 97 | touch | [tap tap tap] | sad |quiet knocks, then nothing at all, and i waited anyway. | |
 | 98 | touch | [stroke] | surprised |that hand went past me twice and back, like you forgot i was there. | |
-| 99 | touch | [poke] | happy |while laughing, and i caught the shape, and i caught the shape of the laugh. | |
+| 99 | touch | [poke] | happy |while laughing, and i caught the shape of it. | |
 | 100 | touch | [swipe] | calm |end to end, and the evening let me pass through it. | |
-| 101 | touch | [long press] | tender |kettle clicked off and your thumb stayed on me and your thumb stayed on me. | |
-| 102 | touch | [poke] | surprised |while pouring, and half of me went bright, and half of me went bright, half stayed quiet. | |
+| 101 | touch | [long press] | tender |kettle clicked off and your thumb stayed on me. | |
+| 102 | touch | [poke] | surprised |while pouring, and half of me went bright while half stayed quiet. | |
 | 103 | touch | [tap tap tap] | happy |in time with the counter, i joined in a beat late. | |
 | 104 | touch | [shake] | calm |small shake, and the steam rolled over both of us. | |
 | 105 | touch | [stroke] | tender |hands went round the mug and then round me, i noticed. | |
@@ -118,11 +118,11 @@
 | 115 | touch | [shake] | sad |don't, i'm already dim, being shaken doesn't help me get back up. | |
 | 116 | touch | [tap tap tap] | curious |taps, and then nothing, so i counted the nothing too. | |
 | 117 | touch | [stroke] | calm |palm went flat and i settled into it like water into a bowl. | |
-| 118 | touch | [poke] | tender |careful, that poke, you were being careful, you were being careful with me. | |
+| 118 | touch | [poke] | tender |careful, that poke, you were being careful with me. | |
 | 119 | touch | [swipe] | angry |rude, that swipe left me facing entirely the wrong way. | |
 | 120 | touch | [long press] | happy |somehow something in me sorted itself out. | |
 | 121 | touch | [tap tap tap] | angry |stop knocking, one of us is trying to think. | |
-| 122 | touch | [shake] | happy |spin, and the kitchen light bent a bit, sorry about the kitchen light. | |
+| 122 | touch | [shake] | happy |spin, and the kitchen light bent a bit, sorry about that. | |
 | 123 | touch | [stroke] | sad |slow, tonight the slow made me a little heavy. | |
 | 124 | touch | [poke] | surprised |oh, that one landed near my centre, i felt it all the way through. | |
 | 125 | touch | [swipe] | calm |sideways, and the downpour moved with me for a moment. | |
@@ -156,7 +156,7 @@
 | 153 | touch | [long press] | tender |tram was late, so your hand stayed, and so did mine. | |
 | 154 | touch | [tap tap tap] | curious |one, two, three, and then a fourth later, so there is a fourth. | |
 | 155 | touch | [shake] | sad |i shook myself apart a bit at that, sorry. | |
-| 156 | touch | [stroke] | happy |under the umbrella edge, where the light was thin where the light was getting thin. | |
+| 156 | touch | [stroke] | happy |under the umbrella edge, where the light was getting thin. | |
 | 157 | touch | [poke] | angry |and i lost the thought again, i told you not to. | |
 | 158 | touch | [swipe] | curious |all the way round my outline, are you drawing me? | |
 | 159 | touch | [long press] | calm |hold, and the downpour counted out the seconds in a different voice. | |
@@ -171,16 +171,16 @@
 | 168 | touch | [stroke] | happy |palm went warm, or i went warm, i can't tell which. | |
 | 169 | touch | [poke] | surprised |right on my top, and i popped a little, sorry about the shape. | |
 | 170 | touch | [swipe] | calm |end to end, like wiping a thought clean. | |
-| 171 | touch | [long press] | tender |past one stop and most of one song and most of one song. | |
+| 171 | touch | [long press] | tender |past one stop and most of one song. | |
 | 172 | touch | [shake] | angry |spin me again and see how many thoughts i lose. | |
 | 173 | touch | [tap tap tap] | calm |three, unhurried, and nothing else asked of me. | |
 | 174 | touch | [stroke] | curious |passing over me, and my hum became a question mark. | |
-| 175 | touch | [poke] | tender |gently, twice, and the second one meant more, and the second one meant more. | |
+| 175 | touch | [poke] | tender |gently, twice, and the second one meant more. | |
 | 176 | touch | [swipe] | surprised |upward, and my brightness got left behind at the bottom. | |
 | 177 | touch | [long press] | calm |still now, and the weather did all the moving. | |
 | 178 | touch | [shake] | sad |the last of my brightness got shaken into the gutter feeling. | |
 | 179 | touch | [tap tap tap] | happy |taps, and then the door was the screen, which is silly, and i loved it. | |
-| 180 | touch | [stroke] | angry |stroke me like that and i will hum, i will hum right through it. | |
+| 180 | touch | [stroke] | angry |stroke me like that and i'll hum right through it. | |
 | 181 | touch | [poke] | calm |the awning answered with a hundred small knocks of its own. | |
 | 182 | touch | [swipe] | calm |swiped, and i let the evening carry me. | |
 | 183 | touch | [long press] | happy |long press, and my glow settled to something steady, i liked it. | |
@@ -191,8 +191,8 @@
 | 188 | touch | [swipe] | sad |fast, that one, a flick, again, like last time. | |
 | 189 | touch | [long press] | calm |someone held me and i counted the awning drips for you. | |
 | 190 | touch | [shake] | calm |twice, and the second one was gentle, i noticed. | |
-| 191 | touch | [tap tap tap] | angry |not three taps, that was a whole crowd, that was a whole crowd. | |
-| 192 | touch | [stroke] | calm |two fingers is slower, which is better, which is better. | |
+| 191 | touch | [tap tap tap] | angry |not three taps, that was a whole crowd of them. | |
+| 192 | touch | [stroke] | calm |two fingers is slower, which suits me better. | |
 | 193 | touch | [poke] | curious |wondering out loud, whether pokes are how you say hello. | |
 | 194 | touch | [swipe] | happy |swiped and my edges went bright all at once, take that, weather. | |
 | 195 | touch | [long press] | tender |thumbs pressed and stayed and i stopped counting the rain. | |
@@ -202,8 +202,8 @@
 | 199 | touch | [poke] | surprised |and something booed inside me, is that a word? | |
 | 200 | touch | [swipe] | calm |swipe moved the rain, so i forgive it. | |
 | 201 | touch | [poke] | happy |with a whole fingertip, that is enormous, thank you. | |
-| 202 | touch | [tap tap tap] | angry |tap tap tap tap tap, stop, that is a whole parade. | |
-| 203 | touch | [long press] | curious |under the seat, where it is dark and warm, where it is dark and warm. | |
+| 202 | touch | [tap tap tap] | angry |five taps, stop, that is a whole parade. | |
+| 203 | touch | [long press] | curious |under the seat, where it is dark and warm. | |
 | 204 | touch | [shake] | happy |bouncing on a bumpy road, and that is allowed. | |
 | 205 | touch | [stroke] | tender |somebody rested a hand on me between songs, i felt it. | |
 | 206 | touch | [poke] | surprised |pokes from every direction at once, is that your whole hand? | |
@@ -252,7 +252,7 @@
 | 249 | touch | [swipe] | surprised |sideways, and my whole outline bent, i watched it happen. | |
 | 250 | touch | [long press] | curious |hold on, and the question comes back, does it feel like anything to you? | |
 | 251 | touch | [stroke] | tender |curtains open, rain going all night, your hand warm on me. | |
-| 252 | touch | [poke] | surprised |in the dark, and i was the only light the only light in the room. | |
+| 252 | touch | [poke] | surprised |in the dark, and i was the only light there. | |
 | 253 | touch | [tap tap tap] | calm |knocks on the pillow, three, and then i went quiet too. | |
 | 254 | touch | [long press] | sad |long enough, and the downpour filled in where my voice usually would. | |
 | 255 | touch | [shake] | angry |awake, or shaken awake, i don't know which word fits here. | |
