@@ -54,3 +54,41 @@ The tool difference is within noise for 60 samples.
 2. Add learning-rate decay to `voice.py` (see the listen note): with a constant LR every voice run drifts after
    ~300 steps, which also hides how much the voice data helps.
 3. If C keeps paying, retrain the base from scratch with the dialogue-heavy mix (a trainer-seat decision).
+
+## Scaled: dialogue-weighted continuation to 60M tokens (measured)
+
+Gentle LR (1/5 of the original peak), mix stories .2 / SODA .5 / dialogues .3, warmup 2%, stable, linear decay over the last 30% (from 42M). 249M total tokens (~13.5 tokens/param).
+
+| Extra tokens | LR × | stories | SODA | dialogues |
+|---|---|---|---|---|
+| 0M | — | 1.794 | 1.528 | 1.270 |
+| 6M | 1.0 | 1.815 | 1.529 | 1.266 |
+| 12M | 1.0 | 1.820 | 1.521 | 1.260 |
+| 18M | 1.0 | 1.822 | 1.515 | 1.252 |
+| 24M | 1.0 | 1.825 | 1.509 | 1.247 |
+| 30M | 1.0 | 1.826 | 1.505 | 1.243 |
+| 36M | 1.0 | 1.828 | 1.500 | 1.240 |
+| 42M | 1.0 | 1.829 | 1.497 | 1.232 |
+| 48M | 0.686 | 1.826 | 1.488 | 1.227 |
+| 54M | 0.353 | 1.819 | 1.480 | 1.219 |
+| 60M | 0.02 | 1.814 | 1.474 | 1.214 |
+
+**Final vs base:** stories +0.020, SODA **−0.054**, dialogues **−0.057**. The dialogue sets kept improving through the
+stable phase (unlike the original-mix continuation, which never beat the base) and the decay added about a third of
+the total gain.
+
+**Voice on top (same 300-step fine-tune, fixed 2,000-line held-out set):**
+
+| Voice fine-tuned on | Held-out voice loss | Right tool |
+|---|---|---|
+| base (189M) | 2.537 | 43/60 |
+| + 6M dialogue-weighted | 2.480 | 46/60 |
+| **+ 60M dialogue-weighted** | **2.469** | **48/60** |
+
+**Reading it (inferred):** 10× more continuation buys only 0.011 more voice loss on top of the first 6M, even though
+pretraining loss on dialogue kept falling 6×. The voice benefits from the *direction* (toward conversation) far more
+than from the *amount*. For this 18.5M model that points to the next lever being the voice recipe itself (LR decay in
+`voice.py`) and data shape, not more pretraining tokens.
+
+**Weights (not in git):** `runs/chin-dialogue/base-dialogue60.pt` (bf16, 37 MB) in the cloud VM; ask to have it
+copied to the Mac if the trainer seat wants to try it in `voice.py`.
