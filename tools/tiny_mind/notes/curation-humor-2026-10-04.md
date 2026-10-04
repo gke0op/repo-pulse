@@ -36,3 +36,24 @@ punchline, one-liner, pickup line, statement.
 
 **Next:** keep reading 30 rows per file; if aphorism share stays near a third after round 8, add a gate for
 the "<things> are/is <metaphor>" opener in humor files at a tighter cap than the voice files' 20.
+
+## Rounds 7–14 (74,004 → 103,344 total; humor target reached)
+
+**Measured:** 140 humor files, **51,192 humor lines**, all passing the checker and gates against every voice and
+humor line. In 30-row reads of the 80 files from rounds 7–14, the "<things> are/keep/make …" aphorism opener is
+down to **2.8%** of rows (about a third in round 1).
+
+**Read:**
+- **Pickup lines between things work now:** "penguins told icebergs, you're clearly my type, chill." /
+  "seconds told minutes, i'll be with you in a bit, and minutes never blink."
+- **Facts inside jokes mostly true** in the sampled science and world files (otters crack shells on their
+  chests, strawberry seeds on the outside, starling murmurations).
+- **New slip: garbled user lines** in a few files ("can we dojoke about ostriches", "know any jokes aboutabout
+  icebergs", "hey,joke about whales"). The gates check only the orb column; a user-line typo gate (doubled
+  words, missing spaces) would catch these.
+- **Feeling tags still drift** on wry everyday lines ("that laundry pile isn't dirty yet…" → sad).
+- **Still more wry than laugh-out-loud** in everyday and AI files; the punchline and pickup kinds are the
+  funniest per row.
+
+**For the trainer:** keep `lines-humor/` a separate source with its own mix weight. Inferred: a small share
+(10–20% of voice batches) adds play without turning every reply into a joke.
